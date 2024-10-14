@@ -15,4 +15,5 @@ def add_player(dbu_name, mobilepay_name, team):
     conn.commit()
     conn.close()
     print("Player added successfully.")
-
+    # return player id
+    return cursor.lastrowid

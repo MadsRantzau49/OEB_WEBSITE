@@ -13,13 +13,15 @@ def add_match(match_url_id,team,season):
     # Insert a new player into the players table
     cursor.execute('''
     INSERT INTO matches (match_url_id, team, match_played, season)
-    VALUES (?, ?, ?)
+    VALUES (?, ?, ?, ?)
     ''', (match_url_id, team, False, season,))
 
     # Commit the changes and close the connection
     conn.commit()
     conn.close()
     print("Match added successfully.")
+    # return match id
+    return cursor.lastrowid
 
 #find a match result ex ØB VEJGAARD: 2-1
 def find_match_result(match_url_id):

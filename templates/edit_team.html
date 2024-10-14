@@ -117,7 +117,29 @@
 
 <div class="container">
     <h1>Team ID: {{ team_id }} - Team Name: {{ team_name[0] }}</h1>
+    <div class="forms-container">
+        <div class="form-section">
+            <form action="/add_player" method="POST">
+                <h3>Add a New Player</h3>
+                <input type="text" name="player_name" placeholder="DBU Name" required>
+                <input type="text" name="mobilepay_name" placeholder="MobilePay Name" required>
+                <input type="hidden" name="team_id" value="{{ team_id }}">
+                <input type="hidden" name="season" value="{{ season }}">
+                <input type="submit" value="Add Player">
+            </form>
+        </div>
 
+        <div class="form-section">
+            <form action="/add_match" method="POST">
+                <h3>Add a New Match</h3>
+                <input type="text" name="match_url" placeholder="Match URL" required>
+                <input type="hidden" name="team_id" value="{{ team_id }}">
+                <input type="hidden" name="season" value="{{ season }}">
+
+                <input type="submit" value="Add Match">
+            </form>
+        </div>
+    </div>
     <div class="divider-container">
         <div class="divider">
             <h2>Players</h2>
@@ -157,26 +179,7 @@
         </div>
     </div>
 
-    <div class="forms-container">
-        <div class="form-section">
-            <form action="/add_player" method="POST">
-                <h3>Add a New Player</h3>
-                <input type="text" name="player_name" placeholder="Player Name" required>
-                <input type="text" name="mobilepay_name" placeholder="MobilePay Name" required>
-                <input type="hidden" name="team_id" value="{{ team_id }}">
-                <input type="submit" value="Add Player">
-            </form>
-        </div>
-
-        <div class="form-section">
-            <form action="/add_match" method="POST">
-                <h3>Add a New Match</h3>
-                <input type="text" name="match_url" placeholder="Match URL" required>
-                <input type="hidden" name="team_id" value="{{ team_id }}">
-                <input type="submit" value="Add Match">
-            </form>
-        </div>
-    </div>
+    
 </div>
 
 </body>
