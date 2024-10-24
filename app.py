@@ -15,9 +15,15 @@ def create_team():
     name = request.form['team_name']
     password = request.form['password']
     id = add_team(name,password)
-    players = run_sql(f"SELECT dbu_name, mobilepay_name FROM players WHERE team = {id}")
-    matches = run_sql(f"SELECT match_url_id FROM matches WHERE team = {id}")
-    return render_template('edit_team.html', team_id = id, name = name, players = players, matches = matches )
+    print(f"id = {id}")
+    if(id):
+        players = run_sql(f"SELECT dbu_name, mobilepay_name FROM players WHERE team = {id}")
+        matches = run_sql(f"SELECT match_url_id FROM matches WHERE team = {id}")
+        return render_template('edit_team.html', team_id = id, team_name = name, players = players, matches = matches )
+    else:
+        error_message = "Hold eksisterer allerede. Prøv et andet navn."
+        print(error_message)
+        return render_template('index.html', error=error_message)
 
 @app.route('/edit_team', methods=['POST'])
 def edit_team():
@@ -25,8 +31,8 @@ def edit_team():
         team_id = request.form['team_id']
         season = request.form['season']
         name = run_sql(f"SELECT team_name FROM teams WHERE id = {team_id}")
-        players = run_sql(f"SELECT dbu_name, mobilepay_name FROM players WHERE team = {team_id}")
-        matches = run_sql(f"SELECT match_url_id FROM matches WHERE team = {team_id} AND season = {season}")
+        players = run_sql(f"SELECT id, dbu_name, mobilepay_name FROM players WHERE team = {team_id}")
+        matches = run_sql(f"SELECT id, match_url_id FROM matches WHERE team = {team_id} AND season = {season}")
         return render_template('edit_team.html', team_id = team_id, team_name = name[0], players = players, matches = matches, season=season )
     except Exception as e:
         print(f"error\n{e}")
@@ -63,7 +69,26 @@ def add_match_router():
         print(f"error\n{e}")
         return "An error occurred", 500
 
-
+@app.route("/remove_match", methods=["POST"])
+def remove_match():
+    try:
+        team_id = request.form["match_id"]
+        run_sql(f"DELETE FROM matches WHERE id = {team_id};")
+        return add_match_router()
+    except Exception as e:
+        print(f"error\n{e}")
+        return "An error occurred", 500
+    
+@app.route("/remove_player", methods=["POST"])
+def remove_player():
+    try:
+        player_id = request.form["player_id"]
+        print(player_id)
+        run_sql(f"DELETE FROM players WHERE id = {player_id};")
+        return add_player_router()
+    except Exception as e:
+        print(f"error\n{e}")
+        return "An error occurred", 500
 
 # All matches not played yet. 
 # match_list = run_sql(f"SELECT id, match_url_id FROM matches WHERE match_played = 0 AND season = {season} AND team = {team}")

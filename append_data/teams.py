@@ -8,11 +8,22 @@ def add_team(team_name, password):
 
     season_name = new_season_name()
     season_date = new_season_date()
+
+    # Check if the team already exists
+    cursor.execute('SELECT COUNT(*) FROM teams WHERE team_name = ?', (team_name,))
+    team_exists = cursor.fetchone()[0]
+
+    if team_exists > 0:
+        print("Team name already exists. Please choose a different name.")
+        return None
+
     # Insert a new player into the players table
     cursor.execute('''
     INSERT INTO teams (team_name, season, season_start_date, password)
     VALUES (?, ?, ?, ?)
     ''', (team_name, season_name, season_date, password))
+
+    team_id = cursor.lastrowid
 
     # Commit the changes and close the connection
     conn.commit()
@@ -20,7 +31,7 @@ def add_team(team_name, password):
     print("Team added successfully.")
     
     # return team id
-    return cursor.lastrowid
+    return team_id
 
 def new_season_date():
     # Get the current date
@@ -28,7 +39,6 @@ def new_season_date():
 
     # Format the date as YYYY-MM-DD
     return current_date.strftime("%Y-%m-%d")
-    return 
 
 def new_season_name():
     # Get the current date
