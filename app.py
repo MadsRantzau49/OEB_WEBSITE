@@ -93,4 +93,4 @@ def remove_player():
 # All matches not played yet. 
 # match_list = run_sql(f"SELECT id, match_url_id FROM matches WHERE match_played = 0 AND season = {season} AND team = {team}")
 
-app.run(debug=True)
+app.run(host='0.0.0.0', port=5000, debug=True)
