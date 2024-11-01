@@ -34,9 +34,12 @@ def edit_team():
 
     team = teamService.verify_login(team_name,password)
     if team:
-        pass
+        players = teamDB.get_team_players(team.id)
+        matches = teamDB.get_team_matches(team.id)
+        return render_template('edit_team.html', team_id = team.id, team_name = team.team_name, players = players, matches = matches, season = team.season )
+    else:
+        return render_template("index.html", error = "Kunne ikke logge ind på holdet")
         
-class TeamController:
-    def edit_team_html(self, team):
-        pass
-    
+@team_controller.route("/add_player", methods=["POST"])
+def add_player():
+    pass

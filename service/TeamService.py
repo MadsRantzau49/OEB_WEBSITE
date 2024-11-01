@@ -31,8 +31,7 @@ class TeamService:
         return current_year + 20000
     
     def verify_login(self, team_name, password):
-        team = self.teamDB.get_team_information(team_name, password)
+        team = self.teamDB.get_team_information(team_name)
         if team and password == team.password:
             return team
         return False
-            

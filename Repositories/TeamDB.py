@@ -46,3 +46,13 @@ class TeamDB:
             return team
         else:
             return None
+        
+    def get_team_players(self, team_id):
+        players = self.runSQLDB.search_in_database(f"SELECT * FROM players where team = {team_id}")
+        print(players)
+        return players
+
+    def get_team_matches(self, team_id):
+        matches = self.runSQLDB.search_in_database(f"SELECT * FROM matches where team = {team_id}")
+        print(matches)
+        return matches
