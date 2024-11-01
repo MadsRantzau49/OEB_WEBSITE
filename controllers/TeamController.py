@@ -34,8 +34,9 @@ def edit_team():
 
     team = teamService.verify_login(team_name,password)
     if team:
+        pass
         
 class TeamController:
     def edit_team_html(self, team):
-        
+        pass
     
