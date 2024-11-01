@@ -10,7 +10,11 @@ cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS teams (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    team_name TEXT NOT NULL
+    team_name TEXT NOT NULL,
+    club_name TEXT NOT NULL,
+    season INT NOT NULL,
+    season_start TEXT NOT NULL,
+    password TEXT NOT NULL               
 )
 ''')
 
@@ -24,6 +28,7 @@ CREATE TABLE IF NOT EXISTS players (
     deposit INTEGER,
     total_fines INTEGER,
     balance INTEGER,
+    is_active INTEGER NOT NULL,
     FOREIGN KEY (team) REFERENCES teams(id)
 )
 ''')
@@ -34,11 +39,12 @@ CREATE TABLE IF NOT EXISTS matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     match_url_id TEXT NOT NULL,
     team INTEGER,
-    oeb_scored INTEGER,
-    opp_scored INTEGER,    
+    team_scored INTEGER,
+    opponent_scored INTEGER,
     fine INTEGER,
     clothe_washer INTEGER,
     match_played BOOLEAN,
+    season INTEGER,
     FOREIGN KEY (clothe_washer) REFERENCES players(id),
     FOREIGN KEY (team) REFERENCES teams(id)
 )

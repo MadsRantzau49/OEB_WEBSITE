@@ -1,5 +1,5 @@
 import pandas as pd
-from database.sql_runner import run_sql #takes the sql string as input
+from model.RunSQLDB import run_sql #takes the sql string as input
 
 def read_trans(player_list):
     # Load the Excel or CSV file

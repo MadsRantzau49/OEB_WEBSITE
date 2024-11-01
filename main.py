@@ -3,7 +3,7 @@ from append_data.players import add_player
 from append_data.match import update_match_content, add_match
 from append_data.player_match import find_game_lineup, add_player_match
 from append_data.money import read_trans, reset_deposit_total_fines_balance, find_game_fines, find_extra_fines, update_balance, update_fines
-from database.sql_runner import run_sql #takes the sql string as input
+from model.RunSQLDB import run_sql #takes the sql string as input
 
 
 # Mostly used SQL for debug:
