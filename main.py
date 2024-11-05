@@ -41,3 +41,4 @@ def update_boedekasse(team,season,match_list):
         except Exception as e:
             # Only handle the exception here and print the error once
             print(f"Data not found on match: \nid: {match_id}\nurl: {match_url}\n")
+print("THIS PAGE SHOULD BE DELETED IN THE FUTURE")
