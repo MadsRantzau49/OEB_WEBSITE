@@ -1,11 +1,13 @@
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
+from flask import g
 
 Base = declarative_base()
 
 DATABASE_URL = 'sqlite:///database/database.db'
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def initialize_database():
@@ -15,7 +17,7 @@ def initialize_database():
     from Model.Player import Player
     from Model.Match import Match
     from Model.Season_Match import Season_Match
-    from Model.Player_Match import Player_Match
+    from Model.Player_Match import Match_Player
     from Model.Extra_Fine import Extra_Fine
 
     # Create all tables in the database

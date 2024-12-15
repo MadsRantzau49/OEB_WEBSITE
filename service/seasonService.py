@@ -9,7 +9,7 @@ class SeasonService:
         self.seasonDB = SeasonDB()
 
     def create_first_season(self, team_id):
-        current_date = datetime.today().date()
+        current_date = str(datetime.today().date()) #typecast due to bug in convertHTMLDate if not a string I AM SHIT AT CODING. 
         return self.create_season(team_id, "season1", current_date, None)
 
     def create_season(self, team_id, season_name, season_start, season_end):
@@ -18,10 +18,8 @@ class SeasonService:
             raise ValueError("Team name already exists. Please choose a different name.")
         
         season_start_date = self.convertHTMLDate(season_start)
-        if season_end: 
-            season_end_date = self.convertHTMLDate(season_end)
-        else:
-            season_end_date = None
+        season_end_date = self.convertHTMLDate(season_end) if season_end else None
+
 
         season = Season(name=season_name, start_date=season_start_date, end_date=season_end_date, team_id=team_id)
 
@@ -29,10 +27,12 @@ class SeasonService:
         season_id = self.seasonDB.add_season(season)
         return season
 
-    def convertHTMLDate(self, date):
-        return datetime.strptime(date, '%Y-%m-%d').date()
+    def convertHTMLDate(self, start_date):
+        return datetime.strptime(start_date, '%Y-%m-%d').date()
 
 
     def get_all_seasons_from_team(self, team_id):
         return self.seasonDB.get_seasons_by_team(team_id)
     
+    def find_latest_season_by_team_id(self, team_id):
+        return self.seasonDB.find_latest_season_by_team_id(team_id)

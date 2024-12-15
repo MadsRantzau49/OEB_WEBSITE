@@ -1,11 +1,13 @@
 from flask import Blueprint, request, render_template
 from Service.PlayerService import PlayerService
 from Service.TeamService import TeamService
+from Service.SeasonService import SeasonService
 from Repositories.TeamDB import TeamDB
 
 # Initialize the service
 player_service = PlayerService()
 team_service = TeamService()
+season_service = SeasonService()
 teamDB = TeamDB()
 
 # Define the Blueprint
@@ -17,8 +19,8 @@ def create_player():
         dbu_name = request.form['player_name']
         mobilepay_name = request.form['mobilepay_name']
         team_id = request.form['team_id']
-        season_id = request.form.get("season", None)
-        print(dbu_name,mobilepay_name,team_id,season_id)
+        season_id = request.form.get("season", season_service.find_latest_season_by_team_id(team_id).id)
+        print(season_id)
         player = player_service.create_player(dbu_name, mobilepay_name, team_id)
 
         team = teamDB.get_team_by_id(team_id)

@@ -68,7 +68,7 @@
                 <form action="/add_match" method="POST">
                     <h3>Add a New Match</h3>
                     <input type="text" name="match_url" placeholder="Match URL" required>
-                    <input type="number" name="team_id" value="{{ team.id }}">
+                    <input type="hidden" name="team_id" value="{{ team.id }}">
                     {% if season_id %}
                     <input type="hidden" name="season_id" value="{{ season_id }}">
                     {% endif %}                    
@@ -113,8 +113,12 @@
                     {% for match in matches %}
                         <li>
                             <a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a>
-                            <form action="/remove_match" method="POST" style="display:inline;">
-                                <input type="hidden" name="match_id" value="{{ match[0] }}">
+                            <form action="/remove_match" method="DELETE" style="display:inline;">
+                                <input type="hidden" name="match_id" value="{{ match.id }}">
+                                {% if season_id %}
+                                    <input type="hidden" name="season_id" value="{{ season_id }}">
+                                    <input type="hidden" name="team_id" value="{{ team.id }}">
+                                {% endif %}      
                                 <input type="submit" value="Remove">
                             </form>
                         </li>

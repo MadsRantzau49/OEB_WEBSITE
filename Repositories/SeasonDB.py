@@ -20,5 +20,9 @@ class SeasonDB:
         season = self.db_session.query(Season).filter(Season.name == season_name, Season.team_id == team_id).first()
         return season is not None
 
+    def find_latest_season_by_team_id(self, team_id):
+        season = self.db_session.query(Season).filter(Season.team_id == team_id).order_by(Season.id.desc()).first()
+        return season
+
     def close(self):
         self.db_session.close()

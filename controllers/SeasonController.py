@@ -33,7 +33,6 @@ def change_season():
     try:
         season_id = request.form['season_id']
         team_id = request.form["team_id"]
-
         team = teamDB.get_team_by_id(team_id)
         players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
         return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
