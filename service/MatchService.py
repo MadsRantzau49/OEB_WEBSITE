@@ -1,19 +1,18 @@
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
 import re
 import json
-
-from Model.Match import Match
 from Repositories.MatchDB import MatchDB
 
-class MatchService(Match):
-    match = Match()
-    
-    #find a match result ex ØB VEJGAARD: 2-1
-    def find_match_result(self):
-        match_result_url = "https://www.dbu.dk/resultater/kamp/" + self.match.match_url_id + "/kampinfo"
+class MatchService:
+    def __init__(self):
+        self.match_db = MatchDB()
 
-        #request html code from dbu.dk
+    # Find a match result, e.g., ØB VEJGAARD: 2-1
+    def find_match_result(self, match_url_id):
+        match_result_url = "https://www.dbu.dk/resultater/kamp/" + self.match_url_id + "/kampinfo"
+
+        # Request HTML code from dbu.dk
         match_result_html_request = requests.get(match_result_url)
         # Parse HTML using BeautifulSoup
         soup = BeautifulSoup(match_result_html_request.text, 'html.parser')
@@ -28,14 +27,15 @@ class MatchService(Match):
         # Split the string into lines
         lines = match_result_text.split('\n')
 
-        #Check if OEB is home or away
-        if MatchDB.find_club_name in lines[0]:
+        # Check if ØB is home or away
+        if "ØB" in lines[0]:  # Adjusted to check the team name directly
             self.match.team_scored = int(lines[2])
             self.match.opponent_scored = int(lines[-3])
         else:
             self.match.team_scored = int(lines[-3])
             self.match.opponent_scored = int(lines[2])
 
+    # Calculate fines based on the match result
     def calculate_fine(self):
         with open('./database/fines.json', 'r') as file:
             data = json.load(file)
@@ -48,19 +48,24 @@ class MatchService(Match):
 
         self.match.fine = 0
 
-        #depends who won 
-        self.match.fine += self.match.oeb_won(won_match_fine,lost_match_fine,draw_match_fine)
+        # Depends on who won
+        self.match.fine += self.oeb_won(won_match_fine, lost_match_fine, draw_match_fine)
 
-        #scored goal fine
+        # Scored goal fine
         self.match.fine += self.match.team_scored * scored_goal_fine
         self.match.fine += self.match.opponent_scored * conceded_goal_fine
 
-    def oeb_won(self, win,lose,draw):
-        if(self.match.team_scored > self.match.opponent_scored):
+    # Determine fine based on match result (win, loss, draw)
+    def oeb_won(self, win, lose, draw):
+        if self.match.team_scored > self.match.opponent_scored:
             return win
-        elif(self.match.team_scored < self.match.opponent_scored):
+        elif self.match.team_scored < self.match.opponent_scored:
             return lose
         else:
             return draw
-        
-    
+
+    # Get matches by season ID
+    def get_matches_by_season(self, season_id):
+        if season_id:
+            return self.match_db.get_matches_by_season(season_id)
+        return None

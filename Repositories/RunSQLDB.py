@@ -1,42 +1,51 @@
-import sqlite3
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
+from database.database_setup import SessionLocal, engine
 
 class RunSQLDB:
     def __init__(self):
-        self.database_path = "./database/database.db"
+        self.database_url = "sqlite:///database/database.db"  # The same path as before, updated for SQLAlchemy
+        self.engine = engine
+        self.SessionLocal = SessionLocal
 
     def connect_to_database(self):
-        # Connect to the database
-        conn = sqlite3.connect(self.database_path)  # Adjust this path as necessary
-        cursor = conn.cursor()
-        return conn, cursor
+        # Create a session to interact with the database
+        session = self.SessionLocal()  # This session is equivalent to a cursor in SQLite3
+        return session
 
-    def close_database_connection(self, conn):
-        # Commit the changes and close the connection
-        conn.commit()
-        conn.close()
-    
-    def search_in_database(self, sql):
-        conn, cursor = self.connect_to_database()
-        # your SQL
+    def close_database_connection(self, session):
+        # Commit and close the session
         try:
-            cursor.execute(sql)
-        except sqlite3.Error as e:
-            print(f"An error occurred: {e}")
+            session.commit()
+        except SQLAlchemyError as e:
+            print(f"An error occurred while committing: {e}")
+        finally:
+            session.close()
 
-        result = cursor.fetchall()
-        
-        self.close_database_connection(conn)
+    def search_in_database(self, sql):
+        # Use the session to perform raw SQL queries
+        session = self.connect_to_database()
+
+        try:
+            # Execute raw SQL query
+            result = session.execute(sql).fetchall()
+        except SQLAlchemyError as e:
+            print(f"An error occurred: {e}")
+            result = None
+        finally:
+            self.close_database_connection(session)
 
         return result
 
     def update_database(self, sql):
-        conn, cursor = self.connect_to_database()
+        # Use the session to execute UPDATE statements or other changes
+        session = self.connect_to_database()
 
-        # your SQL
         try:
-            cursor.execute(sql)
-        except sqlite3.Error as e:
+            # Execute raw SQL query for an update
+            session.execute(sql)
+        except SQLAlchemyError as e:
             print(f"An error occurred: {e}")
-
-        self.close_database_connection(conn)
-
+        finally:
+            self.close_database_connection(session)

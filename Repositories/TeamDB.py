@@ -1,58 +1,28 @@
-from .RunSQLDB import RunSQLDB
+from sqlalchemy.orm import Session
 from Model.Team import Team
+from database.database_setup import SessionLocal
 
-class TeamDB:
+class TeamDB:       
     def __init__(self):
-        self.runSQLDB = RunSQLDB()
+        self.db_session = SessionLocal()
 
-    def team_already_exist(self, team_name):
-        conn, cursor = self.runSQLDB.connect_to_database()
+    def team_already_exist(self, team_name: str) -> bool:
+        team = self.db_session.query(Team).filter(Team.team_name == team_name).first()
+        return team is not None
 
-        cursor.execute('SELECT COUNT(*) FROM teams WHERE team_name = ?', (team_name,))
-        team_exists = cursor.fetchone()[0]
+    def add_team(self, team: Team) -> int:
+        self.db_session.add(team)
+        self.db_session.commit()
+        self.db_session.refresh(team)  # Refresh the object to get the team ID
+        return team.id
 
-        self.runSQLDB.close_database_connection(conn)
-        return team_exists > 0
-    
-    def add_team(self, team):
-        conn, cursor = self.runSQLDB.connect_to_database()
+    def get_team_information(self, team_name: str) -> Team:
+        team = self.db_session.query(Team).filter(Team.team_name == team_name).first()
+        return team
 
-        # Insert a new player into the players table
-        cursor.execute('''
-        INSERT INTO teams (team_name, club_name ,season, season_start, password)
-        VALUES (?, ?, ?, ?, ?)
-        ''', (team.team_name, team.club_name, team.season, team.season_start, team.password))
+    def get_all_teams(self) -> list:
+        teams = self.db_session.query(Team).all()
+        return teams
 
-        team_id = cursor.lastrowid
-        self.runSQLDB.close_database_connection(conn)
-        return team_id
-    
-    def get_team_information(self, team_name):
-        conn, cursor = self.runSQLDB.connect_to_database()
-        cursor.execute('''
-        SELECT * FROM teams WHERE team_name = ?
-        ''', (team_name,))
-        
-        data = cursor.fetchone()
-        self.runSQLDB.close_database_connection(conn)
-        if data:
-            team = Team()
-            team.id = data[0] 
-            team.team_name = data[1] 
-            team.club_name = data[2]
-            team.season = data[3]
-            team.season_start = data[4], 
-            team.password = data[5]
-            return team
-        else:
-            return None
-        
-    def get_team_players(self, team_id):
-        players = self.runSQLDB.search_in_database(f"SELECT * FROM players where team = {team_id}")
-        print(players)
-        return players
-
-    def get_team_matches(self, team_id):
-        matches = self.runSQLDB.search_in_database(f"SELECT * FROM matches where team = {team_id}")
-        print(matches)
-        return matches
+    def close(self):
+        self.db_session.close()

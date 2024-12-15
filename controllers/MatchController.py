@@ -13,3 +13,4 @@ class MatchController:
         match.season = request.form['season']
         MatchDB.add_match(match)
     
+    

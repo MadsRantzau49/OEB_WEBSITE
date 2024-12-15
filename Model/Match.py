@@ -1,13 +1,12 @@
-class Match:
-    def __init__(self, id: int = None, match_url_id: str = None, team: int = None, 
-                 team_scored: int = None, opponent_scored: int = None, fine: int = None, 
-                 clothe_washer: int = None, match_played: bool = None, season: int = None):
-        self.id = id
-        self.match_url_id = match_url_id
-        self.team = team
-        self.team_scored = team_scored
-        self.opponent_scored = opponent_scored
-        self.fine = fine
-        self.clothe_washer = clothe_washer
-        self.match_played = match_played
-        self.season = season
+from sqlalchemy import Column, Integer, String, ForeignKey
+from database.database_setup import Base
+
+class Match(Base):
+    __tablename__ = 'matches'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_url_id = Column(String(255), nullable=False)
+    team_id = Column(Integer, ForeignKey('teams.id'), nullable=False)
+    season_id = Column(Integer, ForeignKey('seasons.id'), nullable=False)
+    team_scored = Column(Integer, nullable=False)
+    opponent_scored = Column(Integer, nullable=False)

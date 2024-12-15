@@ -62,7 +62,18 @@
                     </tbody>
                 </table>
             </div>
-
+            <div class="seasons">
+                <form action="/submit" method="POST">
+                    <select name="season_id">
+                        {% for season in seasonList %}
+                            <option value="{{ season.id }}">{{ season.name }}</option>
+                        {% else %}
+                            <option>No seasons available</option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit" value="Submit">
+                </form>
+            </div>
             <div class="divider">
                 <h2>Matches</h2>
                 <ul class="match-list">
