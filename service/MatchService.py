@@ -91,6 +91,9 @@ class MatchService:
             return self.match_db.get_matches_by_season(season_id)
         return []
     
+    def delete_match(self, match_id):
+        return self.match_db.delete_match(match_id)
+    
 
 #EALIER FUNCTION TO INSPIRATION 
 def add_player_match(player,match):

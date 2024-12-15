@@ -27,3 +27,17 @@ class MatchDB:
             Match.season_id == season_id        
         ).first()
         return match is not None
+
+    @session_handler
+    def find_match_by_id(self, match_id) -> Match:
+        match = self.db_session.query(Match).filter(Match.id == match_id).first()
+        return match
+
+    @session_handler
+    def delete_match(self, match_id) -> bool:
+        match = self.find_match_by_id(match_id)
+        if match:
+            self.db_session.delete(match)
+            self.db_session.commit()  # Commit the deletion to the database
+            return True
+        return False

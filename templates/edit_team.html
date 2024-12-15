@@ -113,7 +113,7 @@
                     {% for match in matches %}
                         <li>
                             <a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a>
-                            <form action="/remove_match" method="DELETE" style="display:inline;">
+                            <form action="/remove_match" method="POST" style="display:inline;">
                                 <input type="hidden" name="match_id" value="{{ match.id }}">
                                 {% if season_id %}
                                     <input type="hidden" name="season_id" value="{{ season_id }}">

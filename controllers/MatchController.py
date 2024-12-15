@@ -29,15 +29,15 @@ def create_match():
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")
 
-@match_controller.route("/remove_match", methods=["DELETE"])
+@match_controller.route("/remove_match", methods=["POST"])
 def delete_match():
     try:
         match_id = request.form['match_id']
 
         team_id = request.form['team_id']
-        season_id = request.form.get("season", season_service.find_latest_season_by_team_id(team_id))
+        season_id = request.form.get("season_id", season_service.find_latest_season_by_team_id(team_id).id)
         
-        match = match_service.delete_match(match_id)
+        is_match_deleted = match_service.delete_match(match_id)
 
         team = teamDB.get_team_by_id(team_id)
         players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
