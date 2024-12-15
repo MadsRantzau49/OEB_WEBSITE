@@ -20,6 +20,10 @@ class TeamDB:
         team = self.db_session.query(Team).filter(Team.team_name == team_name).first()
         return team
 
+    def get_team_by_id(self, team_id) -> Team:
+        team = self.db_session.query(Team).filter(Team.id == team_id).first()
+        return team
+
     def get_all_teams(self) -> list:
         teams = self.db_session.query(Team).all()
         return teams

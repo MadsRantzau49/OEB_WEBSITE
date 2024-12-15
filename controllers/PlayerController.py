@@ -1,22 +1,25 @@
 from flask import Blueprint, request, render_template
-from Service.MatchService import MatchService
-from Repositories.TeamDB import TeamDB
+from Service.PlayerService import PlayerService
 from Service.TeamService import TeamService
-# Initialize the service
-match_service = MatchService()
-teamDB = TeamDB()
-team_service = TeamService()
-# Define the Blueprint
-match_controller = Blueprint('match_controller', __name__)
+from Repositories.TeamDB import TeamDB
 
-@match_controller.route("/add_match", methods=["POST"])
-def create_match():
+# Initialize the service
+player_service = PlayerService()
+team_service = TeamService()
+teamDB = TeamDB()
+
+# Define the Blueprint
+player_controller = Blueprint('player_controller', __name__)
+
+@player_controller.route("/add_player", methods=["POST"])
+def create_player():
     try:
-        match_url = request.form['match_url']
+        dbu_name = request.form['player_name']
+        mobilepay_name = request.form['mobilepay_name']
         team_id = request.form['team_id']
-        season_id = request.form.get("season_id", None)
-        
-        match = match_service.create_match(match_url, team_id, season_id)
+        season_id = request.form.get("season", None)
+        print(dbu_name,mobilepay_name,team_id,season_id)
+        player = player_service.create_player(dbu_name, mobilepay_name, team_id)
 
         team = teamDB.get_team_by_id(team_id)
         players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)

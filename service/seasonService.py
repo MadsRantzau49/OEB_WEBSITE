@@ -17,15 +17,22 @@ class SeasonService:
         if self.seasonDB.season_name_already_exist_for_team(team_id, season_name):
             raise ValueError("Team name already exists. Please choose a different name.")
         
-        season = Season(name=season_name, start_date=season_start, end_date=season_end, team_id=team_id)
+        season_start_date = self.convertHTMLDate(season_start)
+        if season_end: 
+            season_end_date = self.convertHTMLDate(season_end)
+        else:
+            season_end_date = None
+
+        season = Season(name=season_name, start_date=season_start_date, end_date=season_end_date, team_id=team_id)
 
         # Add the team to the database
         season_id = self.seasonDB.add_season(season)
-        print(season)
         return season
+
+    def convertHTMLDate(self, date):
+        return datetime.strptime(date, '%Y-%m-%d').date()
+
 
     def get_all_seasons_from_team(self, team_id):
         return self.seasonDB.get_seasons_by_team(team_id)
     
-    def get_all_matches_from_season(self, season_id):
-        return self.seasonDB.get_matches_by_season(season_id)

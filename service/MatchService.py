@@ -3,10 +3,28 @@ from bs4 import BeautifulSoup
 import re
 import json
 from Repositories.MatchDB import MatchDB
+from Model.Match import Match
+import sqlite3
 
 class MatchService:
     def __init__(self):
         self.match_db = MatchDB()
+
+    def create_match(self, match_url_id, team_id, season_id):
+        match_already_exist = self.match_db.match_already_exist(match_url_id, team_id, season_id)
+
+        if match_already_exist:
+            raise ValueError("Match already exist.")
+        
+        if not season_id:
+            raise ValueError("No season found")
+        match = Match(match_url_id=match_url_id, team_id=team_id, season_id=season_id, team_scored=0, opponent_scored=0)
+
+        # Add the team to the database
+        match_id = self.match_db.add_match(match)
+
+        return match    
+    
 
     # Find a match result, e.g., ØB VEJGAARD: 2-1
     def find_match_result(self, match_url_id):
@@ -34,6 +52,9 @@ class MatchService:
         else:
             self.match.team_scored = int(lines[-3])
             self.match.opponent_scored = int(lines[2])
+    
+    def get_all_matches_from_season(self, season_id):
+        return self.seasonDB.get_matches_by_season(season_id)
 
     # Calculate fines based on the match result
     def calculate_fine(self):
@@ -68,4 +89,50 @@ class MatchService:
     def get_matches_by_season(self, season_id):
         if season_id:
             return self.match_db.get_matches_by_season(season_id)
-        return None
+        return []
+    
+
+#EALIER FUNCTION TO INSPIRATION 
+def add_player_match(player,match):
+    # Connect to the database
+    conn = sqlite3.connect('database/database.db') 
+    cursor = conn.cursor()
+
+    # Insert a new player into the players table
+    cursor.execute('''
+    INSERT INTO player_match (player, match)
+    VALUES (?, ?)
+    ''', (player,match))
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+    print("Match added successfully.")
+
+
+#Webscrape the player list from DBU webiste
+def find_game_lineup(match_id):
+    team_lineup_url = "https://www.dbu.dk/resultater/kamp/" + match_id +"/kampinfo"
+
+
+    #request html code from dbu.dk
+    team_lineup_html_request = requests.get(team_lineup_url)
+    
+    # Parse HTML using BeautifulSoup
+    soup = BeautifulSoup(team_lineup_html_request.text, 'html.parser')
+
+    # Find all team lineup information
+    team_lineup_info = soup.find_all("div", {"class": "sr--match--team-cards dbu-grid"})
+    if not team_lineup_info:
+        raise ValueError("Match Not Found")
+    
+    # Extract text from HTML elements
+    team_lineup_text = [info.get_text() for info in team_lineup_info]
+    team_lineup_text_string = ""
+    for elements in team_lineup_text:
+        team_lineup_text_string += elements
+    
+    team_lineup_text_string = re.sub(r'\n\s*\n', '\n', team_lineup_text_string).strip()
+
+    return team_lineup_text_string
+

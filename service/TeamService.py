@@ -3,8 +3,9 @@ from Repositories.TeamDB import TeamDB
 from Repositories.PlayerDB import PlayerDB
 from Repositories.SeasonDB import SeasonDB
 from Model.Team import Team
-from Service.seasonService import SeasonService
+from Service.SeasonService import SeasonService
 from sqlalchemy.orm import Session
+from Service.MatchService import MatchService
 
 class TeamService:
     def __init__(self):
@@ -13,7 +14,7 @@ class TeamService:
         self.playerDB = PlayerDB()
         self.seasonDB = SeasonDB()
         self.seasonService = SeasonService()
-
+        self.match_service = MatchService()
     def create_team(self, team_name, club_name, password):
         """
         Creates a new team, verifying that the team name is unique and valid.
@@ -62,3 +63,8 @@ class TeamService:
     def get_all_team_players(self, team_id):
         return self.playerDB.get_players_by_team(team_id)
 
+    def get_all_edit_team_informations(self, team, season_id):
+        players = self.get_all_team_players(team.id)
+        seasonList = self.seasonService.get_all_seasons_from_team(team.id)
+        matches = self.match_service.get_matches_by_season(season_id)
+        return players, seasonList, matches

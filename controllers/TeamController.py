@@ -1,12 +1,8 @@
 from flask import Blueprint, request, render_template
 from Service.TeamService import TeamService
-from Service.seasonService import SeasonService
-from Service.matchService import MatchService
 
 # Initialize the service
 team_service = TeamService()
-season_service = SeasonService()
-match_service = MatchService()
 # Define the Blueprint
 team_controller = Blueprint('team_controller', __name__)
 
@@ -21,7 +17,6 @@ def create_team():
         # Call service layer to create a team
         team = team_service.create_team(team_name, club_name, password)
     
-        # If team creation is successful
         return render_template("index.html", success="Team created successfully! You can now log in.")
 
     except Exception as e:
@@ -34,15 +29,12 @@ def edit_team():
         team_name = request.form["team_name"]
         password = request.form["password"]
         season_id = request.form.get("season", None)
-        print(season_id)
         # Call service to verify login and fetch team details
         team = team_service.verify_login(team_name, password)
-        players = team_service.get_all_team_players(team.id)
-        seasonList = season_service.get_all_seasons_from_team(team.id)
-        # matches = match_service.get_matches_by_season(season_id)
-
-        return render_template('edit_team.html', team_id=team.id, team_name=team.team_name, players=players, seasonList=seasonList)
+        players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
+       
+        return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
 
     except Exception as e:
-        # Handle error
         return render_template("index.html", error=f"Error: {str(e)}")
+

@@ -15,6 +15,10 @@ class PlayerDB:
     def get_players_by_team(self, team_id: int) -> list:
         players = self.db_session.query(Player).filter(Player.team_id == team_id).all()
         return players
+    
+    def player_already_exist(self, name_type, name: str) -> bool:
+        player = self.db_session.query(Player).filter(name_type == name).first()
+        return player is not None
 
     def close(self):
         self.db_session.close()

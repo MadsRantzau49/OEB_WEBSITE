@@ -6,7 +6,7 @@ class Player(Base):
 
     id = Column(Integer, primary_key=True)
     dbu_name = Column(String, nullable=False)
-    mobile_name = Column(String, nullable=False)
+    mobilepay_name = Column(String, nullable=False)
     total_fines = Column(Integer, nullable=False)
     deposit = Column(Integer, nullable=False)
     is_active = Column(Boolean, nullable=False)
