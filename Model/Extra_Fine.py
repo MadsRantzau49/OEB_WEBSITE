@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text, ForeignKey
-from database.database_setup import Base
+from Database.database_setup import Base
 
 class Extra_Fine(Base):
     __tablename__ = 'extra_fines'

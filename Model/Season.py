@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Date
-from database.database_setup import Base
+from Database.database_setup import Base
 
 class Season(Base):
     __tablename__ = 'seasons'

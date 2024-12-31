@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey
-from database.database_setup import Base
+from Database.database_setup import Base
 
 class Player_Match(Base):
     __tablename__ = 'player_match'

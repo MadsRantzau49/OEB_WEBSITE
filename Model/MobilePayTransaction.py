@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey, LargeBinary
-from database.database_setup import Base
+from Database.database_setup import Base
 
 class MobilePayTransaction(Base):
     __tablename__ = 'mobilepay_transactions'
