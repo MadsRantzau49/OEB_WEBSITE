@@ -1,7 +1,6 @@
 import re
 from Repositories.TeamDB import TeamDB
 from Repositories.PlayerDB import PlayerDB
-from Repositories.SeasonDB import SeasonDB
 from Model.Team import Team
 from Service.SeasonService import SeasonService
 from sqlalchemy.orm import Session
@@ -10,10 +9,9 @@ from Service.MatchService import MatchService
 class TeamService:
     def __init__(self):
         # Initialize the other layers
-        self.teamDB = TeamDB()
-        self.playerDB = PlayerDB()
-        self.seasonDB = SeasonDB()
-        self.seasonService = SeasonService()
+        self.team_DB = TeamDB()
+        self.player_DB = PlayerDB()
+        self.season_service = SeasonService()
         self.match_service = MatchService()
     def create_team(self, team_name, club_name, password):
         """
@@ -25,17 +23,17 @@ class TeamService:
             raise ValueError("Invalid team name. Only letters, numbers, and Danish characters are allowed, no spaces.")
         
         # Check if team already exists
-        if self.teamDB.team_already_exist(team_name):
+        if self.team_DB.team_already_exist(team_name):
             raise ValueError("Team name already exists. Please choose a different name.")
         
         # Create the Team object
         team = Team(team_name=team_name, club_name=club_name, password=password)
 
         # Add the team to the database
-        team_id = self.teamDB.add_team(team)
+        team_id = self.team_DB.add_team(team)
 
         # Create a default season
-        season = self.seasonService.create_first_season(team_id)
+        season = self.season_service.create_first_season(team_id)
         return team
 
     def is_valid_name(self, name):
@@ -53,7 +51,7 @@ class TeamService:
         Returns the team object if successful, otherwise False.
         """
         # Retrieve team information from the database
-        team = self.teamDB.get_team_information(team_name)
+        team = self.team_DB.get_team_information(team_name)
         
         # Check if team exists and if the password matches
         if team and password == team.password:
@@ -61,10 +59,13 @@ class TeamService:
         raise ValueError("Wrong username and password")
     
     def get_all_team_players(self, team_id):
-        return self.playerDB.get_players_by_team(team_id)
+        return self.player_DB.get_players_by_team(team_id)
 
     def get_all_edit_team_informations(self, team, season_id):
         players = self.get_all_team_players(team.id)
-        seasonList = self.seasonService.get_all_seasons_from_team(team.id)
+        seasonList = self.season_service.get_all_seasons_from_team(team.id)
         matches = self.match_service.get_matches_by_season(season_id)
         return players, seasonList, matches
+    
+    def get_team_by_id(self, team_id):
+        return self.team_DB.get_team_by_id(team_id)

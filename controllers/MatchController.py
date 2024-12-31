@@ -5,7 +5,7 @@ from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
 # Initialize the service
 match_service = MatchService()
-teamDB = TeamDB()
+team_DB = TeamDB()
 team_service = TeamService()
 season_service = SeasonService()
 # Define the Blueprint
@@ -20,7 +20,7 @@ def create_match():
         
         match = match_service.create_match(match_url, team_id, season_id)
 
-        team = teamDB.get_team_by_id(team_id)
+        team = team_service.get_team_by_id(team_id)
         players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
        
         return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
@@ -39,7 +39,7 @@ def delete_match():
         
         is_match_deleted = match_service.delete_match(match_id)
 
-        team = teamDB.get_team_by_id(team_id)
+        team = team_DB.get_team_by_id(team_id)
         players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
        
         return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
