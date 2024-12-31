@@ -29,3 +29,4 @@ def create_player():
     except Exception as e:
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")
+

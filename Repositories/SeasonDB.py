@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from Model.Season import Season
-from database.database_setup import SessionLocal
+from Database.database_setup import SessionLocal
 from .session_handler import session_handler
 class SeasonDB:
     def __init__(self):

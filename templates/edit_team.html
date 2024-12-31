@@ -95,6 +95,10 @@
                                 <td>
                                     <form action="/remove_player" method="POST" style="display:inline;">
                                         <input type="hidden" name="player_id" value="{{ player }}">
+                                        {% if season_id %}
+                                            <input type="hidden" name="season_id" value="{{ season_id }}">
+                                            <input type="hidden" name="team_id" value="{{ team.id }}">
+                                        {% endif %}   
                                         <input type="submit" value="Remove">
                                     </form>
                                 </td>

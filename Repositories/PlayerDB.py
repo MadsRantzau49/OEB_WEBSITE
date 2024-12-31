@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from Model.Player import Player
-from database.database_setup import SessionLocal
+from Database.database_setup import SessionLocal
 from .session_handler import session_handler
 
 
