@@ -5,7 +5,7 @@ from Model.Team import Team
 from Service.SeasonService import SeasonService
 from sqlalchemy.orm import Session
 from Service.MatchService import MatchService
-
+from Model.EditTeamData import EditTeamData
 class TeamService:
     def __init__(self):
         # Initialize the other layers
@@ -61,11 +61,13 @@ class TeamService:
     def get_all_team_players(self, team_id):
         return self.player_DB.get_players_by_team(team_id)
 
-    def get_all_edit_team_informations(self, team, season_id):
+    def get_all_edit_team_informations(self, team, season):
         players = self.get_all_team_players(team.id)
         seasonList = self.season_service.get_all_seasons_from_team(team.id)
-        matches = self.match_service.get_matches_by_season(season_id)
-        return players, seasonList, matches
+        if not season:
+            season = self.season_service.find_latest_season_by_team_id(team.id)
+        matches = self.match_service.get_matches_by_season(season.id)
+        return EditTeamData(team, season, players, seasonList, matches)
     
     def get_team_by_id(self, team_id):
         return self.team_DB.get_team_by_id(team_id)

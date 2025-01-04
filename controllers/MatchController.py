@@ -15,15 +15,19 @@ match_controller = Blueprint('match_controller', __name__)
 def create_match():
     try:
         match_url = request.form['match_url']
-        team_id = request.form['team_id']
-        season_id = request.form.get("season_id", None)
+        team = request.form['team']
+        season = request.form.get("season",None)
         
-        match = match_service.create_match(match_url, team_id, season_id)
+        match = match_service.create_match(match_url, team.id, season.id)
 
-        team = team_service.get_team_by_id(team_id)
-        players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
-       
-        return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
+        edit_team_data = team_service.get_all_edit_team_informations(team, season)
+        return render_template('edit_team.html', 
+                               team=edit_team_data.team, 
+                               players=edit_team_data.players, 
+                               seasonList=edit_team_data.seasonList, 
+                               season=edit_team_data.season, 
+                               matches=edit_team_data.matches
+                               )
     
     except Exception as e:
         # In case of error
@@ -33,16 +37,19 @@ def create_match():
 def delete_match():
     try:
         match_id = request.form['match_id']
-
-        team_id = request.form['team_id']
-        season_id = request.form.get("season_id", season_service.find_latest_season_by_team_id(team_id).id)
+        team = request.form['team']
+        season = request.form.get("season",None)
         
-        is_match_deleted = match_service.delete_match(match_id)
+        match_service.delete_match(match_id)
 
-        team = team_DB.get_team_by_id(team_id)
-        players, seasonList, matches = team_service.get_all_edit_team_informations(team,season_id)
-       
-        return render_template('edit_team.html', team=team, players=players, seasonList=seasonList, season_id=season_id, matches=matches)
+        edit_team_data = team_service.get_all_edit_team_informations(team, season)
+        return render_template('edit_team.html', 
+                               team=edit_team_data.team, 
+                               players=edit_team_data.players, 
+                               seasonList=edit_team_data.seasonList, 
+                               season=edit_team_data.season, 
+                               matches=edit_team_data.matches
+                               )
     
     except Exception as e:
         # In case of error
