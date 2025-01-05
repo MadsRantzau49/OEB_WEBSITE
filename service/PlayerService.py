@@ -21,3 +21,7 @@ class PlayerService:
         player_id = self.playerDB.add_player(player)
 
         return player    
+    
+    def delete_player(self, player_id):
+        if not self.playerDB.delete_player(player_id):
+            raise Exception("Player not deleted")

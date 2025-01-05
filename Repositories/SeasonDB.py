@@ -28,3 +28,12 @@ class SeasonDB:
         season = self.db_session.query(Season).filter(Season.team_id == team_id).order_by(Season.id.desc()).first()
         return season
 
+    @session_handler
+    def find_season_by_id(self, season_id):
+        season = self.db_session.query(Season).filter(Season.id == season_id).first()
+        return season
+    
+    @session_handler
+    def update_season(self, season):
+        self.db_session.merge(season)
+        self.db_session.commit()

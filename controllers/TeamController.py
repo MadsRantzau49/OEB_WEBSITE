@@ -29,14 +29,9 @@ def edit_team():
 
         team = team_service.verify_login(team_name, password)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team,None)
-        return render_template('edit_team.html', 
-                               team=edit_team_data.team, 
-                               players=edit_team_data.players, 
-                               seasonList=edit_team_data.seasonList, 
-                               season=edit_team_data.season, 
-                               matches=edit_team_data.matches
-                               )
+        edit_team_data = team_service.get_all_edit_team_informations(team.id,None)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+
 
     except Exception as e:
         return render_template("index.html", error=f"Error: {str(e)}")

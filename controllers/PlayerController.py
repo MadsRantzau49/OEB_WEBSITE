@@ -16,42 +16,31 @@ def create_player():
     try:
         dbu_name = request.form['player_name']
         mobilepay_name = request.form['mobilepay_name']
-        team = request.form['team']
-        season = request.form.get("season",None)
+        team_id = request.form['team_id']
+        season_id = request.form.get("season_id",None)
         
-        player = player_service.create_player(dbu_name, mobilepay_name, team.id)
+        player = player_service.create_player(dbu_name, mobilepay_name, team_id)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team, season)
-        return render_template('edit_team.html', 
-                               team=edit_team_data.team, 
-                               players=edit_team_data.players, 
-                               seasonList=edit_team_data.seasonList, 
-                               season=edit_team_data.season, 
-                               matches=edit_team_data.matches
-                               )
+        edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+
     
     except Exception as e:
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")
 
 @player_controller.route("/remove_player", methods=["POST"])
-def create_player():
+def remove_player():
     try:
-        dbu_name = request.form['player_name']
-        mobilepay_name = request.form['mobilepay_name']
-        team = request.form['team']
-        season = request.form.get("season",None)
+        player_id = request.form['player_id']
+        team_id = request.form['team_id']
+        season_id = request.form.get("season_id",None)
         
-        player = player_service.create_player(dbu_name, mobilepay_name, team.id)
+        player_service.delete_player(player_id)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team, season)
-        return render_template('edit_team.html', 
-                               team=edit_team_data.team, 
-                               players=edit_team_data.players, 
-                               seasonList=edit_team_data.seasonList, 
-                               season=edit_team_data.season, 
-                               matches=edit_team_data.matches
-                               )
+        edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+
     
     except Exception as e:
         # In case of error

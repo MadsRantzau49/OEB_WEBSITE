@@ -28,3 +28,16 @@ class PlayerDB:
     @session_handler
     def close(self):
         self.db_session.close()
+
+    @session_handler
+    def find_player_by_id(self, player_id):
+        return self.db_session.query(Player).filter(Player.id == player_id).first()
+
+    @session_handler
+    def delete_player(self, player_id) -> bool:
+        player = self.find_player_by_id(player_id)
+        if player:
+            self.db_session.delete(player)
+            self.db_session.commit()  
+            return True
+        return False

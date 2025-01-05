@@ -36,3 +36,17 @@ class SeasonService:
     
     def find_latest_season_by_team_id(self, team_id):
         return self.seasonDB.find_latest_season_by_team_id(team_id)
+    
+    def find_season_by_id(self, season_id):
+        return self.seasonDB.find_season_by_id(season_id)
+    
+    def update_season(self, season_id, season_name, season_start, season_end):
+        season = self.seasonDB.find_season_by_id(season_id)
+
+        season.name = season_name
+        season.start_date = self.convertHTMLDate(season_start) if season_start else None
+        season.end_date = self.convertHTMLDate(season_end) if season_end else None
+
+        self.seasonDB.update_season(season)
+
+        return season

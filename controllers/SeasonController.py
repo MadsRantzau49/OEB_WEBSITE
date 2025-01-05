@@ -13,37 +13,49 @@ def create_season():
         name = request.form['season_name']
         start_date = request.form['season_start']
         end_date = request.form.get('season_end',None)
-        team = request.form["team"]
+        team_id = request.form["team_id"]
 
-        season = season_service.create_season(team.id, name, start_date, end_date)
+        season = season_service.create_season(team_id, name, start_date, end_date)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team,season)
-        return render_template('edit_team.html', 
-                               team=edit_team_data.team, 
-                               players=edit_team_data.players, 
-                               seasonList=edit_team_data.seasonList, 
-                               season=edit_team_data.season, 
-                               matches=edit_team_data.matches
-                               )
+        edit_team_data = team_service.get_all_edit_team_informations(team_id,season.id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+
     
     except Exception as e:
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")
 
+import json
+
+
 @season_controller.route("/change_season", methods=["POST"])
 def change_season():
     try:
-        season = request.form['season']
-        team = request.form["team"]
+        season_id = request.form['season_id']
+        team_id = request.form['team_id']
 
-        edit_team_data = team_service.get_all_edit_team_informations(team,season)
-        return render_template('edit_team.html', 
-                               team=edit_team_data.team, 
-                               players=edit_team_data.players, 
-                               seasonList=edit_team_data.seasonList, 
-                               season=edit_team_data.season, 
-                               matches=edit_team_data.matches
-                               )
+        edit_team_data = team_service.get_all_edit_team_informations(team_id,season_id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+    
+    except Exception as e:
+        # In case of error
+        return render_template("index.html", error=f"Error: {str(e)}")
+
+@season_controller.route("/edit_season", methods=["POST"])
+def edit_season():
+    try:
+        season_id = request.form['season_id']
+        team_id = request.form['team_id']
+        season_name = request.form['season_name']
+        season_start = request.form.get('season_start',None)
+        season_end = request.form.get('season_end',None)
+        print(season_end)
+
+
+        season = season_service.update_season(season_id, season_name, season_start, season_end)
+
+        edit_team_data = team_service.get_all_edit_team_informations(team_id,season.id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
     
     except Exception as e:
         # In case of error
