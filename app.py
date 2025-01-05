@@ -15,7 +15,7 @@ app.register_blueprint(season_controller)
 
 @app.route('/')
 def home():
-    return render_template('cordinator.html')
+    return render_template('index.html')
 
 if __name__ == '__main__':
     initialize_database()

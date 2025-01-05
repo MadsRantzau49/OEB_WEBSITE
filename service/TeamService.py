@@ -69,7 +69,26 @@ class TeamService:
         if not season:
             season = self.season_service.find_latest_season_by_team_id(team.id)
         matches = self.match_service.get_matches_by_season(season.id)
+
         return EditTeamData(team, season, players, seasonList, matches)
     
     def get_team_by_id(self, team_id):
         return self.team_DB.get_team_by_id(team_id)
+    
+    def get_suggested_players(self, season_id):
+        season = self.season_service.find_season_by_id(season_id)
+        team = self.get_team_by_id(season.team_id)
+
+        team_players = self.get_all_team_players(season.team_id)
+        team_player_dbu_names = [player.dbu_name for player in team_players]
+        
+        matches = self.match_service.get_matches_by_season(season.id)
+        suggested_player_list = []
+
+        for match in matches:
+            match_player_list = self.match_service.find_team_lineup(match.match_url_id, team.club_name)
+            for player in match_player_list:
+                if player not in team_player_dbu_names and player not in suggested_player_list:
+                    suggested_player_list.append(player)
+        return suggested_player_list               
+

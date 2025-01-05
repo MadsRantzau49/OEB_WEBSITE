@@ -22,7 +22,8 @@ def create_player():
         player = player_service.create_player(dbu_name, mobilepay_name, team_id)
 
         edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
-        return render_template('edit_team.html', edit_team_data=edit_team_data)
+        suggested_player_list = team_service.get_suggested_players(season_id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data, suggested_player_list=suggested_player_list)
 
     
     except Exception as e:
@@ -42,6 +43,22 @@ def remove_player():
         return render_template('edit_team.html', edit_team_data=edit_team_data)
 
     
+    except Exception as e:
+        # In case of error
+        return render_template("index.html", error=f"Error: {str(e)}")
+
+@player_controller.route("/get_suggested_players_list", methods=["POST"])
+def get_suggested_players_list():
+    try:
+        team_id = request.form['team_id']
+        season_id = request.form.get("season_id",None)
+
+        edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
+        suggested_player_list = team_service.get_suggested_players(season_id)
+        return render_template('edit_team.html', edit_team_data=edit_team_data, suggested_player_list=suggested_player_list)
+
+
+
     except Exception as e:
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")

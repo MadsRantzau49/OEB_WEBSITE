@@ -9,6 +9,8 @@ import sqlite3
 class MatchService:
     def __init__(self):
         self.match_db = MatchDB()
+        self.HOME_TEAM_LINEUP_SEARCH = "table", {"class": "dbu-data-table dbu-data-table--no-hover dbu-data-table-oddeven home-team"}
+        self.AWAY_TEAM_LINEUP_SEARCH = "table", {"class": "dbu-data-table dbu-data-table--no-hover away-team dbu-data-table-oddeven"}
 
     def create_match(self, match_url_id, team_id, season_id):
         match_already_exist = self.match_db.match_already_exist(match_url_id, team_id, season_id)
@@ -94,48 +96,34 @@ class MatchService:
     def delete_match(self, match_id):
         return self.match_db.delete_match(match_id)
     
+    #Webscrape the player list from DBU webiste
+    def find_team_lineup(self, match_id, club_name):
+        soup = self.get_match_info_from_dbu(match_id)
+        if self.is_match_played_on_home_stadion(soup, club_name):
+            team_lineup_div = soup.find(self.HOME_TEAM_LINEUP_SEARCH)
+        else:
+            team_lineup_div = soup.find(self.AWAY_TEAM_LINEUP_SEARCH)
 
-#EALIER FUNCTION TO INSPIRATION 
-def add_player_match(player,match):
-    # Connect to the database
-    conn = sqlite3.connect('database/database.db') 
-    cursor = conn.cursor()
+        if not team_lineup_div:
+            raise ValueError("Lineup not found")
+        
+        # takes every span values in the team_lineup_div and then ignore the first (which is the club name)
+        return [span.text for span in team_lineup_div.select('span')][1:]
+        
 
-    # Insert a new player into the players table
-    cursor.execute('''
-    INSERT INTO player_match (player, match)
-    VALUES (?, ?)
-    ''', (player,match))
-
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()
-    print("Match added successfully.")
-
-
-#Webscrape the player list from DBU webiste
-def find_game_lineup(match_id):
-    team_lineup_url = "https://www.dbu.dk/resultater/kamp/" + match_id +"/kampinfo"
-
-
-    #request html code from dbu.dk
-    team_lineup_html_request = requests.get(team_lineup_url)
+    def get_match_info_from_dbu(self, match_id):
+        team_lineup_url = "https://www.dbu.dk/resultater/kamp/" + match_id +"/kampinfo"
+        #request html code from dbu.dk
+        team_lineup_html_request = requests.get(team_lineup_url)
+        
+        # Parse HTML using BeautifulSoup
+        return BeautifulSoup(team_lineup_html_request.text, 'html.parser')
     
-    # Parse HTML using BeautifulSoup
-    soup = BeautifulSoup(team_lineup_html_request.text, 'html.parser')
-
-    # Find all team lineup information
-    team_lineup_info = soup.find_all("div", {"class": "sr--match--team-cards dbu-grid"})
-    if not team_lineup_info:
-        raise ValueError("Match Not Found")
-    
-    # Extract text from HTML elements
-    team_lineup_text = [info.get_text() for info in team_lineup_info]
-    team_lineup_text_string = ""
-    for elements in team_lineup_text:
-        team_lineup_text_string += elements
-    
-    team_lineup_text_string = re.sub(r'\n\s*\n', '\n', team_lineup_text_string).strip()
-
-    return team_lineup_text_string
-
+    def is_match_played_on_home_stadion(self, soup, club_name):
+        home_team_club_name = soup.find(self.HOME_TEAM_LINEUP_SEARCH).find('th', class_='reserve').find('span').text
+        if home_team_club_name == club_name:
+            return True
+        away_team_club_name = soup.find(self.AWAY_TEAM_LINEUP_SEARCH).find('th', class_='reserve').find('span').text
+        if away_team_club_name == club_name:
+            return False
+        raise Exception("Club name not found in match, ensure the club name is equal to DBU database.")
