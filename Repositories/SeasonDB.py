@@ -37,3 +37,4 @@ class SeasonDB:
     def update_season(self, season):
         self.db_session.merge(season)
         self.db_session.commit()
+        return season

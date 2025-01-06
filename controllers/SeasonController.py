@@ -17,7 +17,7 @@ def create_season():
 
         season = season_service.create_season(team_id, name, start_date, end_date)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team_id,season.id)
+        edit_team_data = team_service.get_all_edit_team_informations(season.id)
         return render_template('edit_team.html', edit_team_data=edit_team_data)
 
     
@@ -32,9 +32,8 @@ import json
 def change_season():
     try:
         season_id = request.form['season_id']
-        team_id = request.form['team_id']
 
-        edit_team_data = team_service.get_all_edit_team_informations(team_id,season_id)
+        edit_team_data = team_service.get_all_edit_team_informations(season_id)
         return render_template('edit_team.html', edit_team_data=edit_team_data)
     
     except Exception as e:
@@ -45,7 +44,6 @@ def change_season():
 def edit_season():
     try:
         season_id = request.form['season_id']
-        team_id = request.form['team_id']
         season_name = request.form['season_name']
         season_start = request.form.get('season_start',None)
         season_end = request.form.get('season_end',None)
@@ -54,7 +52,7 @@ def edit_season():
 
         season = season_service.update_season(season_id, season_name, season_start, season_end)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team_id,season.id)
+        edit_team_data = team_service.get_all_edit_team_informations(season.id)
         return render_template('edit_team.html', edit_team_data=edit_team_data)
     
     except Exception as e:

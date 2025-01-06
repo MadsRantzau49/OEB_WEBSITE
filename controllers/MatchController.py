@@ -20,7 +20,7 @@ def create_match():
         
         match = match_service.create_match(match_url, team_id, season_id)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
+        edit_team_data = team_service.get_all_edit_team_informations(season_id)
         return render_template('edit_team.html', edit_team_data=edit_team_data)
 
     
@@ -32,12 +32,11 @@ def create_match():
 def delete_match():
     try:
         match_id = request.form['match_id']
-        team_id = request.form['team_id']
         season_id = request.form.get("season_id",None)
         
         match_service.delete_match(match_id)
 
-        edit_team_data = team_service.get_all_edit_team_informations(team_id, season_id)
+        edit_team_data = team_service.get_all_edit_team_informations(season_id)
         return render_template('edit_team.html', edit_team_data=edit_team_data)
 
     

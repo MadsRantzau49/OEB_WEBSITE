@@ -47,6 +47,6 @@ class SeasonService:
         season.start_date = self.convertHTMLDate(season_start) if season_start else None
         season.end_date = self.convertHTMLDate(season_end) if season_end else None
 
-        self.seasonDB.update_season(season)
+        updated_season = self.seasonDB.update_season(season)
 
         return season

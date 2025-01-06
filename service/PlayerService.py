@@ -23,3 +23,15 @@ class PlayerService:
     def delete_player(self, player_id):
         if not self.playerDB.delete_player(player_id):
             raise Exception("Player not deleted")
+
+    def edit_player_name(self, player_id, dbu_name, mobilepay_name):
+        player = self.get_player_from_id(player_id)
+        player.dbu_name = dbu_name
+        player.mobilepay_name = mobilepay_name
+        
+        updated_player = self.playerDB.update_player(player)
+
+        return player
+
+    def get_player_from_id(self, player_id):
+        return self.playerDB.find_player_by_id(player_id)

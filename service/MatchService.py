@@ -98,26 +98,27 @@ class MatchService:
     
     #Webscrape the player list from DBU webiste
     def find_team_lineup(self, match_id, club_name):
-        soup = self.get_match_info_from_dbu(match_id)
-        if self.is_match_played_on_home_stadion(soup, club_name):
-            team_lineup_div = soup.find(self.HOME_TEAM_LINEUP_SEARCH)
-        else:
-            team_lineup_div = soup.find(self.AWAY_TEAM_LINEUP_SEARCH)
+        try:
+            soup = self.get_match_info_from_dbu(match_id)
+            if self.is_match_played_on_home_stadion(soup, club_name):
+                team_lineup_div = soup.find(self.HOME_TEAM_LINEUP_SEARCH)
+            else:
+                team_lineup_div = soup.find(self.AWAY_TEAM_LINEUP_SEARCH)
 
-        if not team_lineup_div:
-            raise ValueError("Lineup not found")
-        
-        # takes every span values in the team_lineup_div and then ignore the first (which is the club name)
-        return [span.text for span in team_lineup_div.select('span')][1:]
-        
+            if not team_lineup_div:
+                raise ValueError("Lineup not found")
+            
+            # takes every span values in the team_lineup_div and then ignore the first (which is the club name)
+            return [span.text for span in team_lineup_div.select('span')][1:]
+        except Exception as e:
+            return []
 
     def get_match_info_from_dbu(self, match_id):
-        team_lineup_url = "https://www.dbu.dk/resultater/kamp/" + match_id +"/kampinfo"
+        match_info_url = "https://www.dbu.dk/resultater/kamp/" + match_id +"/kampinfo"
         #request html code from dbu.dk
-        team_lineup_html_request = requests.get(team_lineup_url)
-        
+        match_info_url_request = requests.get(match_info_url)
         # Parse HTML using BeautifulSoup
-        return BeautifulSoup(team_lineup_html_request.text, 'html.parser')
+        return BeautifulSoup(match_info_url_request.text, 'html.parser')
     
     def is_match_played_on_home_stadion(self, soup, club_name):
         home_team_club_name = soup.find(self.HOME_TEAM_LINEUP_SEARCH).find('th', class_='reserve').find('span').text

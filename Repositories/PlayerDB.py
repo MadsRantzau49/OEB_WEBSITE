@@ -41,3 +41,9 @@ class PlayerDB:
             self.db_session.commit()  
             return True
         return False
+    
+    @session_handler
+    def update_player(self, player):
+        self.db_session.merge(player)
+        self.db_session.commit()
+        return player

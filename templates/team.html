@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask Website</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/team.css') }}">
+</head>
+<body>
+    <!-- Display error message if it exists -->
+    {% if error %}
+        <h1 style="color:red;">{{ error }}</h1>
+    {% endif %}
+    <div class="container">
+        
+    </div>
+</body>
+</html>
