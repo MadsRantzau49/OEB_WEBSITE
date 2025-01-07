@@ -41,3 +41,9 @@ class MatchDB:
             self.db_session.commit()  # Commit the deletion to the database
             return True
         return False
+    
+    @session_handler
+    def update_match(self, match):
+        self.db_session.merge(match)
+        self.db_session.commit()
+        return match

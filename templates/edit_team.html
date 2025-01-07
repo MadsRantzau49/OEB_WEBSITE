@@ -104,6 +104,7 @@
                                             <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
                                             <input type="hidden" name="player_name" value="{{ suggested_player }}">
                                             <input type="hidden" name="mobilepay_name" value="{{ suggested_player }}">
+                                            <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
                                             <input type="submit" value="Tilføj">
                                         </form>
                                     </td>
@@ -125,6 +126,12 @@
                     {% for match in edit_team_data.matches %}
                         <li>
                             <a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a>
+                            {% if match.home_scored is not none %}
+                            <h3>Home: {{match.home_club }}: {{ match.home_scored }}</h3>
+                            <h3>Away: {{match.away_club }}: {{ match.away_scored }}</h3>
+                            {% else %}
+                            <h3>Not played</h3>
+                            {% endif %}
                             <form action="/remove_match" method="POST" style="display:inline;">
                                 <input type="hidden" name="match_id" value="{{ match.id }}">
                                 <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
@@ -135,6 +142,10 @@
                         <li>No matches found.</li>
                     {% endfor %}
                 </ul>
+                <form action="/update_all_season_matches_information" method="POST"style="display:inline;">
+                    <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                    <input type="submit" value="Update">
+                </form>
             </div>
         </div>
         <!-- Form for Creating a New Season (unchanged) -->

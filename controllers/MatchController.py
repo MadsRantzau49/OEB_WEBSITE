@@ -43,3 +43,18 @@ def delete_match():
     except Exception as e:
         # In case of error
         return render_template("index.html", error=f"Error: {str(e)}")
+    
+@match_controller.route("/update_all_season_matches_information", methods=["POST"])
+def update_all_season_matches_information():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        
+        match_service.update_all_season_matches_information(season_id)
+
+        edit_team_data = team_service.get_all_edit_team_informations(season_id)
+
+        return render_template('edit_team.html', edit_team_data=edit_team_data)
+
+    except Exception as e:
+        return render_template('edit_team.html', edit_team_data=edit_team_data, error=e)

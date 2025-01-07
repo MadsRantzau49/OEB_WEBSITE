@@ -47,8 +47,6 @@ def edit_season():
         season_name = request.form['season_name']
         season_start = request.form.get('season_start',None)
         season_end = request.form.get('season_end',None)
-        print(season_end)
-
 
         season = season_service.update_season(season_id, season_name, season_start, season_end)
 

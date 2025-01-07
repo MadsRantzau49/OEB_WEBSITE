@@ -10,5 +10,6 @@ class Match(Base):
     season_id = Column(Integer, ForeignKey('seasons.id'), nullable=False)
     home_club = Column(String(255), nullable=True)
     away_club = Column(String(255), nullable=True)
-    team_scored = Column(Integer, nullable=False)
-    opponent_scored = Column(Integer, nullable=False)
+    home_scored = Column(Integer, nullable=True)
+    away_scored = Column(Integer, nullable=True)
+    
