@@ -20,10 +20,9 @@ class MatchDB:
         return self.db_session.query(Match).filter(Match.season_id == season_id).all()
 
     @session_handler
-    def match_already_exist(self, match_url_id, team_id, season_id):
+    def match_already_exist(self, match_url_id, season_id):
         match = self.db_session.query(Match).filter(
             Match.match_url_id == match_url_id, 
-            Match.team_id == team_id,            
             Match.season_id == season_id        
         ).first()
         return match is not None

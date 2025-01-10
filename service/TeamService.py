@@ -67,7 +67,6 @@ class TeamService:
         players = self.get_all_team_players(team.id)
         seasonList = self.season_service.get_all_seasons_from_team(team.id)        
         matches = self.match_service.get_matches_by_season(season.id)
-
         return EditTeamData(team, season, players, seasonList, matches)
     
     def get_team_by_id(self, team_id):
@@ -85,6 +84,7 @@ class TeamService:
 
         for match in matches:
             match_player_list = self.match_service.find_team_lineup(match.match_url_id, team.club_name)
+            print(match_player_list)
             for player in match_player_list:
                 if player not in team_player_dbu_names and player not in suggested_player_list:
                     suggested_player_list.append(player)
@@ -93,3 +93,12 @@ class TeamService:
             raise ValueError("No suggested players found, (they are found by players who had played on season matches)")
         return suggested_player_list               
 
+    def get_suggested_matches(self, season_id):
+        season = self.season_service.find_season_by_id(season_id)
+
+        matches = self.match_service.get_matches_by_season(season.id)
+        suggested_matches_list = self.season_service.get_suggested_season_matches(season.season_url)
+
+        return True        
+
+        

@@ -10,21 +10,24 @@ class MatchService:
     def __init__(self):
         self.match_db = MatchDB()
 
-    def create_match(self, match_url_id, team_id, season_id):
-        match_already_exist = self.match_db.match_already_exist(match_url_id, team_id, season_id)
-
+    def create_match(self, match_url_id, season_id):
+        match_already_exist = self.match_already_exist(match_url_id, season_id)
         if match_already_exist:
             raise ValueError("Match already exist.")
         
         if not season_id:
             raise ValueError("No season found")
-        match = Match(match_url_id=match_url_id, team_id=team_id, season_id=season_id, home_scored=None, away_scored=None)
+        match = Match(match_url_id=match_url_id, season_id=season_id, home_scored=None, away_scored=None)
 
         # Add the team to the database
         match_id = self.match_db.add_match(match)
 
         return match    
     
+    def match_already_exist(self, match_url_id, season_id):
+        return self.match_db.match_already_exist(match_url_id, season_id)
+
+
     def get_all_matches_from_season(self, season_id):
         return self.seasonDB.get_matches_by_season(season_id)
 
@@ -52,13 +55,10 @@ class MatchService:
 
             match.home_scored = self.get_home_team_scored_goals(soup)
             match.away_scored = self.get_away_team_scored_goals(soup)
-            print(match.home_club,"\n",match.home_scored,"\n",match.away_club,"\n",match.away_scored,"\n\n\n\n")
 
             return self.update_match(match)
 
         except Exception as e:
-            print("\n\nERRRORRRR\n\n")
-            print(e)
             raise ValueError("Kamp data ikke fundet")
 
     def update_all_season_matches_information(self, season_id):
@@ -75,10 +75,12 @@ class MatchService:
     def find_team_lineup(self, match_id, club_name):
         try:
             soup = self.get_match_info_from_dbu(match_id)
-            if self.is_match_played_on_home_stadion(soup, club_name):
-                team_lineup_div = soup.find(self.HOME_TEAM_LINEUP_SEARCH)
+            home_club = self.get_home_club_name(soup)
+            away_club = self.get_away_club_name(soup)
+            if self.is_match_played_on_home_stadion(home_club, away_club, club_name):
+                team_lineup_div = soup.find("table", {"class": "dbu-data-table dbu-data-table--no-hover dbu-data-table-oddeven home-team"})
             else:
-                team_lineup_div = soup.find(self.AWAY_TEAM_LINEUP_SEARCH)
+                team_lineup_div = soup.find("table", {"class": "dbu-data-table dbu-data-table--no-hover away-team dbu-data-table-oddeven"})
 
             if not team_lineup_div:
                 raise ValueError("Lineup not found")
@@ -96,10 +98,10 @@ class MatchService:
         return BeautifulSoup(match_info_url_request.text, 'html.parser')
     
     def get_home_club_name(self, soup):
-        return soup.find("div", {"class": "sr--match--live-score--result--home"}).find("div", {"class": "teamname"}).text.strip()
+        return soup.find("div", {"class": "sr--match--live-score--result--home"}).find("div", {"class": "teamname"}).text.strip().upper()
 
     def get_away_club_name(self, soup):
-        return soup.find("div", {"class": "sr--match--live-score--result--away"}).find("div", {"class": "teamname"}).text.strip()
+        return soup.find("div", {"class": "sr--match--live-score--result--away"}).find("div", {"class": "teamname"}).text.strip().upper()
 
     def get_home_team_scored_goals(self, soup):
         return soup.find("div", {"class": "sr-match-score"}).find("div", {"class": "home"}).text.strip()

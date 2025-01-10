@@ -11,6 +11,10 @@
     {% if error %}
         <h1 style="color:red;">{{ error }}</h1>
     {% endif %}
+    {% if success %}
+        <h1 style="color:green;">{{ success }}</h1>
+    {% endif %}
+
     <div class="container">
         <h1>Team Name: {{ edit_team_data.team.team_name }}</h1>
         
@@ -50,7 +54,6 @@
                 <form action="/add_match" method="POST">
                     <h3>Add a New Match</h3>
                     <input type="text" name="match_url" placeholder="Match URL" required>
-                    <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
                     <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
                     <input type="submit" value="Add Match">
                 </form>
@@ -94,23 +97,29 @@
                             </tr>
                         {% endfor %}
                         
-                        {% if suggested_player_list %}
-                            {% for suggested_player in suggested_player_list %}
-                                <tr>
-                                    <td>{{ suggested_player }}</td>
-                                    <td>{{ suggested_player }}</td>
-                                    <td>
-                                        <form action="/add_player" method="POST" style="display:inline;">
-                                            <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
-                                            <input type="hidden" name="player_name" value="{{ suggested_player }}">
-                                            <input type="hidden" name="mobilepay_name" value="{{ suggested_player }}">
-                                            <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
-                                            <input type="submit" value="Tilføj">
-                                        </form>
-                                    </td>
-                                </tr>
-                            {% endfor %}
+                        {% if suggested_player_list is defined and suggested_player_list %}
+                        <tr>
+                            <td colspan="3">Suggested players is listed below</td>
+                        </tr>
                         {% endif %}
+
+                        {% for suggested_player in suggested_player_list %}
+                            <tr>
+                                <td>{{ suggested_player }}</td>
+                                <td>{{ suggested_player }}</td>
+                                <td>
+                                    <form action="/add_player" method="POST" style="display:inline;">
+                                        <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                        <input type="hidden" name="player_name" value="{{ suggested_player }}">
+                                        <input type="hidden" name="mobilepay_name" value="{{ suggested_player }}">
+                                        <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
+                                        <input type="submit" value="Tilføj">
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                        <!-- nothing -->
+                        {% endfor %}
 
                     </tbody>
                 </table>
@@ -122,29 +131,70 @@
             <!-- Matches -->
             <div class="divider">
                 <h2>Matches</h2>
-                <ul class="match-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Match_ID</th>
+                            <th>Home</th>
+                            <th>AWAY</th>
+                            <th>Result</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                     {% for match in edit_team_data.matches %}
-                        <li>
-                            <a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a>
-                            {% if match.home_scored is not none %}
-                            <h3>Home: {{match.home_club }}: {{ match.home_scored }}</h3>
-                            <h3>Away: {{match.away_club }}: {{ match.away_scored }}</h3>
+                        <tr>
+                            <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
+                            {% if match.home_club %}
+                            <td>{{ match.home_club if match.home_club is not none else '' }}</td>
+                            <td>{{ match.away_club if match.away_club is not none else '' }}</td>
+                            <td>
+                                {{ match.home_scored if match.home_scored is not none else '' }} - 
+                                {{ match.away_scored if match.away_scored is not none else '' }}
+                            </td>
                             {% else %}
-                            <h3>Not played</h3>
+                            <td colspan="3">Match data not found, try update</td>
                             {% endif %}
-                            <form action="/remove_match" method="POST" style="display:inline;">
+                            <td><form action="/remove_match" method="POST" style="display:inline;">
                                 <input type="hidden" name="match_id" value="{{ match.id }}">
                                 <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
                                 <input type="submit" value="Remove">
-                            </form>
-                        </li>
+                            </form></td>
+                        </tr>
                     {% else %}
-                        <li>No matches found.</li>
+                    <tr>
+                        <td colspan="5">No matches found.</td>
+                    </tr>
                     {% endfor %}
-                </ul>
-                <form action="/update_all_season_matches_information" method="POST"style="display:inline;">
+                    {% if suggested_matches is defined and suggested_matches %}
+                    <tr>
+                        <td colspan="5">Suggested matches is listed below</td>
+                    </tr>
+                    {% endif %}
+                    {% for match in suggested_matches %}
+                        <tr>
+                            <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
+                            <td> {{match.home_club }}</td>
+                            <td> {{match.away_club }}</td>
+                            <td> </td>
+                            <form action="/add_match" method="POST">
+                                <input type="hidden" name="match_url" value="{{ match.match_url_id }}" required>
+                                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                <td><input type="submit" value="Add Match"></td>
+                            </form>
+                        </tr>
+                    {% else %}
+                    <!-- nothing -->
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <form action="/update_all_season_matches_information" method="POST" style="display:inline;">
                     <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
-                    <input type="submit" value="Update">
+                    <input type="submit" value="Update matches">
+                </form>
+                <form action="/get_suggested_season_matches" method="POST"style="display:inline;">
+                    <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                    <input type="submit" value="Get suggested matches">
                 </form>
             </div>
         </div>
@@ -152,6 +202,8 @@
         <form action="/create_season" method="POST">
             <h3>Create a New Season</h3>
             <input type="text" name="season_name" placeholder="Season Name" required>
+
+            <input type="text" name="season_url" placeholder="Season DBU URL">
 
             <label for="season_start">Start Date:</label>
             <input type="date" name="season_start" id="season_start" required>
@@ -167,6 +219,9 @@
             <h3>Edit Season</h3>
             <h5>Start and End date er used for scoping mobilepay transactions. Therefore, ensure start date are before anyone sent any money for that season and end date is when everyhing is settled.</h5>
             <input type="text" name="season_name" value={{edit_team_data.season.name}} required>
+
+            <label for="season_url">Season DBU URL:</label>
+            <input type="text" name="season_url" value="{{edit_team_data.season.season_url}}">
 
             <label for="season_start">Start Date:</label>
             <input type="date" name="season_start" id="season_start" value={{edit_team_data.season.start_date}} required>
