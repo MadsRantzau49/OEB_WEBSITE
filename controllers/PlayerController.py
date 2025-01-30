@@ -76,3 +76,22 @@ def get_suggested_players_list():
         return edit_team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+
+@player_controller.route("/add_suggested_players", methods=["POST"])
+def add_suggested_players():
+    error = None
+    try:
+        dbu_name_list = request.form.getlist('player_name')
+        team_id = request.form['team_id']
+        season_id = request.form.get("season_id",None)
+        
+        # The mobilepay may be wrong but most likely correct. 
+        for dbu_name in dbu_name_list:
+            player = player_service.create_player(dbu_name, dbu_name, team_id)
+
+        return edit_team_data_service.edit_team_data_html(season_id)
+
+    except ValueError as e:
+        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)

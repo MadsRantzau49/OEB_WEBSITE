@@ -76,3 +76,19 @@ def get_suggested_season_matches():
         return edit_team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+
+@match_controller.route("/add_suggested_matches", methods=["POST"])
+def add_suggested_matches():
+    error = None
+    try:
+        match_url_list = request.form.getlist('match_url')
+        season_id = request.form.get("season_id",None)
+        
+        for match_url in match_url_list:
+            match_service.create_match(match_url, season_id)
+        return edit_team_data_service.edit_team_data_html(season_id)
+    
+    except ValueError as e:
+        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)

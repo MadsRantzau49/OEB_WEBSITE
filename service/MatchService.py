@@ -84,7 +84,6 @@ class MatchService:
 
             if not team_lineup_div:
                 raise ValueError("Lineup not found")
-            
             # takes every span values in the team_lineup_div and then ignore the first (which is the club name)
             return [span.text for span in team_lineup_div.select('span')][1:]
         except Exception as e:
