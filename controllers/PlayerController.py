@@ -13,7 +13,6 @@ player_controller = Blueprint('player_controller', __name__)
 
 @player_controller.route("/add_player", methods=["POST"])
 def create_player():
-    error = None
     try:
         dbu_name = request.form['player_name']
         mobilepay_name = request.form['mobilepay_name']
@@ -79,7 +78,6 @@ def get_suggested_players_list():
 
 @player_controller.route("/add_suggested_players", methods=["POST"])
 def add_suggested_players():
-    error = None
     try:
         dbu_name_list = request.form.getlist('player_name')
         team_id = request.form['team_id']

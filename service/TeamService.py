@@ -6,6 +6,7 @@ from Service.SeasonService import SeasonService
 from sqlalchemy.orm import Session
 from Service.MatchService import MatchService
 from Model.EditTeamData import EditTeamData
+from Repositories.FineDB import FineDB
 class TeamService:
     def __init__(self):
         # Initialize the other layers
@@ -13,6 +14,7 @@ class TeamService:
         self.player_DB = PlayerDB()
         self.season_service = SeasonService()
         self.match_service = MatchService()
+        self.fine_DB = FineDB()
     def create_team(self, team_name, club_name, password):
         """
         Creates a new team, verifying that the team name is unique and valid.
@@ -67,7 +69,9 @@ class TeamService:
         players = self.get_all_team_players(team.id)
         seasonList = self.season_service.get_all_seasons_from_team(team.id)        
         matches = self.match_service.get_matches_by_season(season.id)
-        return EditTeamData(team, season, players, seasonList, matches)
+        fines = self.fine_DB.get_all_team_fines(team.id)
+    
+        return EditTeamData(team, season, players, seasonList, matches, fines)
     
     def get_team_by_id(self, team_id):
         return self.team_DB.get_team_by_id(team_id)
@@ -101,4 +105,7 @@ class TeamService:
 
         return True        
 
+    def get_team_by_season_id(self, season_id):
+        season = self.season_service.find_season_by_id(season_id)
+        return self.get_team_by_id(season.team_id)
         

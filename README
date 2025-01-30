@@ -1,16 +1,5 @@
 Mangler før production:
 
-edit_team:
-  -tilføjer flere kampe af gangen
-  -tilføje flere spillere af gangen
-  -Mere brugervenligt at ændre season og hvad man skal gøre
-  -tilføj transaction
-  --upload
-  ---slet GDPR(telefonnr)
-  --1 hold har 1 transaction
-  --Download transaction
-  -tilføj og fjern bøder 
-  --navn, pris, beskrivelse
 
 teams:
 liste med alle spillere

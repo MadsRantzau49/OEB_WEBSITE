@@ -15,7 +15,6 @@ match_controller = Blueprint('match_controller', __name__)
 
 @match_controller.route("/add_match", methods=["POST"])
 def create_match():
-    error = None
     try:
         match_url = request.form['match_url']
         season_id = request.form.get("season_id",None)
@@ -32,7 +31,6 @@ def create_match():
 
 @match_controller.route("/remove_match", methods=["POST"])
 def delete_match():
-    error = None
     try:
         match_id = request.form['match_id']
         season_id = request.form.get("season_id",None)
@@ -49,7 +47,6 @@ def delete_match():
 
 @match_controller.route("/update_all_season_matches_information", methods=["POST"])
 def update_all_season_matches_information():
-    error = None
     try:
         season_id = request.form.get("season_id",None)
         
@@ -64,7 +61,6 @@ def update_all_season_matches_information():
 
 @match_controller.route("/get_suggested_season_matches", methods=["POST"])
 def get_suggested_season_matches():
-    error = None
     try:
         season_id = request.form.get("season_id",None)
 
@@ -79,7 +75,6 @@ def get_suggested_season_matches():
 
 @match_controller.route("/add_suggested_matches", methods=["POST"])
 def add_suggested_matches():
-    error = None
     try:
         match_url_list = request.form.getlist('match_url')
         season_id = request.form.get("season_id",None)
