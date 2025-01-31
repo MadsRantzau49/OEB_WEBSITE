@@ -44,7 +44,7 @@ def see_team_as_admin():
     try:
         season_id = request.form["season_id"]
 
-        return team_data_service.edit_team_data_html(season.id)
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except Exception as e:
         return render_template('index.html', error=e)

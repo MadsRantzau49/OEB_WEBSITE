@@ -69,13 +69,13 @@ class FinanceService:
                     if player.mobilepay_name.lower() == name.lower() or player.dbu_name.lower() == str(message).lower().strip():
                         player.deposit += amount
                         self.player_DB.update_player(player)
-        except:
-            raise ValueError("Fejl opstod ved upload af filen, det skal være xlsx fil. Prøv igen")
+        except Exception as e:
+            raise ValueError("Fejl opstod ved upload af filen. Prøv igen")
 
 
     def reset_all_team_players_deposit(self, players):
         for player in players:
-            player.deposit = 10
+            player.deposit = 0
             self.player_DB.update_player(player)
     
 

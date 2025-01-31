@@ -14,3 +14,13 @@ class TeamDataService:
         except Exception as e:
             # In case of error, render index.html with error
             return render_template('index.html', error=e)
+
+    def user_team_data_html(self, season_id, *args, **kwargs):
+        try:
+            user_team_data = self.team_service.get_all_edit_team_informations(season_id)
+            
+            return render_template('team.html', user_team_data=user_team_data, **kwargs)
+    
+        except Exception as e:
+            print(f"{e}\n\n\n\n\n")
+            return render_template('team.html', error=e)

@@ -62,7 +62,6 @@ class SeasonService:
             season = self.find_season_by_id(season_id)
             soup = self.get_season_information_from_dbu(season.season_url)
             all_match_table = soup.find("div", {"id": "teamMatchProgram"})
-            print("\n\n\n\n\n\n")
             table_row = all_match_table.find_all("tr", {"class": "has-hover"})
             
             suggested_matches = []

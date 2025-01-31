@@ -11,4 +11,5 @@ class Match(Base):
     away_club = Column(String(255), nullable=True)
     home_scored = Column(Integer, nullable=True)
     away_scored = Column(Integer, nullable=True)
+    clothes_washer = Column(Integer, ForeignKey('players.id') ,nullable=True)
     

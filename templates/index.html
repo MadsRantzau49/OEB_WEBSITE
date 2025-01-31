@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='/styles/index.css') }}">
 </head>
 <body>
+    <!-- Display error message if it exists -->
+    {% if error %}
+    <h1 style="color:red;">{{ error }}</h1>
+    {% endif %}
+    {% if success %}
+        <h1 style="color:green;">{{ success }}</h1>
+    {% endif %}
     <button onclick="window.location.href='/admin_index';">Admin</button>
     <h2>Vælg Hold</h2>
     <form action="/select_team" method="POST">

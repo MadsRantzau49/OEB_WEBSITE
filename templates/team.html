@@ -11,10 +11,160 @@
     {% if error %}
         <h1 style="color:red;">{{ error }}</h1>
     {% endif %}
+    {% if success %}
+        <h1 style="color:green;">{{ success }}</h1>
+    {% endif %}
+
     <div class="container">
-        <h1>TEST</h1>
+        <h1>Team Name: {{ user_team_data.team.team_name }}</h1>
+
+        <!-- Players -->        
+        <div class="divider">
+            <h2>Spillere</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Navn</th>
+                        <th>Bøder</th>
+                        <th>Betalt</th>
+                        <th>Balance</th>
+                        <th>Se bøder</th>
+                        {% if is_admin %}
+                            <th>Opret bøde</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in user_team_data.players %}
+                        <tr>
+                            <td>{{ player.dbu_name }}</td>
+                            <td>{{ player.total_fines }}</td>
+                            <td>{{ player.deposit }}</td>
+                            <td>{{ player.balance }}</td>
+                            <td>
+                                <form action="/see_player" method="POST" style="display:inline;">
+                                    <input type="hidden" name="player_id" value="{{ player.id }}">
+                                    <input type="hidden" name="season_id" value="{{ user_team_data.season.id }}">
+                                    <input type="submit" value="Se Bøder">
+                                </form>
+                                {% if is_admin %}
+                                    <td>
+                                        <form action="/see_player" method="POST" style="display:inline;">
+                                            <input type="text" name="fine_name" placeholder="Navn" required>
+                                            <input type="text" name="fine_description" placeholder="Beskrivelse" required>
+                                            <input type="number" name="fine_amount" value=0 required>
+                                            <input type="hidden" name="player_id" value="{{ player.id }}">
+                                            <input type="hidden" name="fine_id" value=0>
+                                            <input type="submit" value="Opret bøde">
+                                        </form>
+                                   </td>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4">Dette hold har ingen spillere</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+            
+        <!-- Matches -->
+        <div class="divider">
+            <h2>Matches</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Match_ID</th>
+                        <th>Hjemme</th>
+                        <th>Ude</th>
+                        <th>Resultat</th>
+                        <th>Tøj Vasker</th>
+                        <th>Beløb</th>
+                        {% if is_admin %}
+                            <th>Ændre vasker</th>                     
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for match in user_team_data.matches %}
+                    <tr>
+                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
+                        {% if match.home_club %}
+                        <td>{{ match.home_club if match.home_club is not none else '' }}</td>
+                        <td>{{ match.away_club if match.away_club is not none else '' }}</td>
+                        <td>
+                            {{ match.home_scored if match.home_scored is not none else '' }} - 
+                            {{ match.away_scored if match.away_scored is not none else '' }}
+                        </td>
+                        {% else %}
+                            <td colspan="3">Kamp data ikke opdateret endnu, kontakt bødekasseformand for at opdatere</td>
+                        {% endif %}
+                        <td>{{match.clothes_washer}}</td>
+                        <td>{{match.fine_amount}}</td>
+                    </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">Der er ikke tilføjet nogle kampe til dette hold endnu</td>
+                </tr>
+                {% endfor %}
+            
+                </tbody>
+            </table>
+        </div>
 
 
+        <!-- Fines -->
+        <div class="divider">
+            <h2>Bøder</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Navn</th>
+                        <th>Beskrivelse</th>
+                        <th>Pris</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fine in user_team_data.fines %}
+                        <tr>
+                                <td>{{ fine.name }}</td>
+                                <td>{{ fine.description }}</td>
+                                <td>{{ fine.amount }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="3">Dette hold har ingen defineret bøder</td>
+                        </tr>
+                    {% endfor %}
+                                            
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Season -->
+        <div class="divider">
+            <!-- CHANGE SEASON -->
+            <div class="seasons">
+                <h2>Season: {{user_team_data.season.name}} </h2>
+            
+                <form action="/change_team_user_season" method="POST">
+                    <select name="season_id" onchange="this.form.submit()">
+                        <option value="">Vælg Sæson</option>
+                        {% for season in user_team_data.seasonList %}
+                            <option value="{{ season.id }}">{{ season.name }}</option>
+                        {% else %}
+                            <option>Ingen sæsoner tilgængelige</option>
+                        {% endfor %}
+                    </select>
+                    <!-- Hidden submit button to support automatic form submission -->
+                    <noscript><input type="submit" value="Submit"></noscript>
+                </form>
+            </div>
+        </div>
     </div>
 </body>
 </html>

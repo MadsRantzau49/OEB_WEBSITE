@@ -88,7 +88,6 @@ class TeamService:
 
         for match in matches:
             match_player_list = self.match_service.find_team_lineup(match.match_url_id, team.club_name)
-            print(match_player_list)
             for player in match_player_list:
                 if player not in team_player_dbu_names and player not in suggested_player_list:
                     suggested_player_list.append(player)
