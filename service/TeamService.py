@@ -5,7 +5,7 @@ from Model.Team import Team
 from Service.SeasonService import SeasonService
 from sqlalchemy.orm import Session
 from Service.MatchService import MatchService
-from Model.EditTeamData import EditTeamData
+from Model.TeamData import TeamData
 from Repositories.FineDB import FineDB
 class TeamService:
     def __init__(self):
@@ -71,7 +71,7 @@ class TeamService:
         matches = self.match_service.get_matches_by_season(season.id)
         fines = self.fine_DB.get_all_team_fines(team.id)
     
-        return EditTeamData(team, season, players, seasonList, matches, fines)
+        return TeamData(team, season, players, seasonList, matches, fines)
     
     def get_team_by_id(self, team_id):
         return self.team_DB.get_team_by_id(team_id)

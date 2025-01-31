@@ -1,25 +1,49 @@
 Mangler før production:
 
+(ADMIN) knap til at opdatere alt data.
+-Opdater kampe
+-Opdater vaskealgoritme
+-Opdater total bøder pr spiller
+
+(ADMIN) knap til at gå til edit_team
 
 teams:
 liste med alle spillere
 -Navn
+-Betalt
+-Skylder i alt
 -Balance
--Action (se spillerdata)
+-Actions
+-- Se spillerdata
+-- (ADMIN) tilføj bøde
+
+spillerdata:
+-Knap til at gå tilbage til teams
+-Navn (overskrift)
+-Data fra DB
+-Liste med alle bøder de har fået
+-(ADMIN) skal kunne fjerne bøder
+
+kampe:
+-link
+-hjemmehold
+-udehold
+-resultat
+-hvem der vasket tøj
+-bøde (beløb)
+--(ADMIN) tilføj/fjern/edit vasker
+--(ADMIN) opdater enkelt kamp
 
 Liste med vasketøj
+-(den er lavet)
+--Det skal fungere sådan at top 3 navne skal selv finde ud af hvem der vasker. 
 
-Opdater data (opdatere alle kampe)
 
 Liste med udgifter (penge brugt på øl)
 -Dato
 -Hvem modtageren er
 -Beskrivelse af mobilepayen
 -beløb
-
-Liste med kampe spillet og bøderne derfra.
-
-Den samme side skal have en admin edition som kan det samme bortset fra også at tilføje bøder (tilføj form)
 
 Regler og beskrivelse af hvordan bødekasse systemet fungere. 
 
@@ -39,12 +63,8 @@ balance
 Liste med alle bøder
 liste med alle kampe man har spillet i
 
-liste med kampe man har vasket tøj i.
-
-
 Vasketøj:
 Automatisk oprettelse af fair vaskeplan.
-liste med kampe og hvem som har vasket. 
 
 
 system:

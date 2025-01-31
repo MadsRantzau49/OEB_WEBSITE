@@ -2,12 +2,12 @@ from flask import Blueprint, request, render_template
 from Service.PlayerService import PlayerService
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
-from Service.EditTeamDataService import EditTeamDataService
+from Service.TeamDataService import TeamDataService
 # Initialize the service
 player_service = PlayerService()
 team_service = TeamService()
 season_service = SeasonService()
-edit_team_data_service = EditTeamDataService()
+team_data_service = TeamDataService()
 # Define the Blueprint
 player_controller = Blueprint('player_controller', __name__)
 
@@ -23,10 +23,10 @@ def create_player():
 
         suggested_player_list = team_service.get_suggested_players(season_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id, suggested_player_list=suggested_player_list)
+        return team_data_service.edit_team_data_html(season_id, suggested_player_list=suggested_player_list)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -38,10 +38,10 @@ def remove_player():
         
         player_service.delete_player(player_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -55,10 +55,10 @@ def edit_player_name():
 
         player = player_service.edit_player_name(player_id, dbu_name, mobilepay_name)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -69,10 +69,10 @@ def get_suggested_players_list():
 
         suggested_player_list = team_service.get_suggested_players(season_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id, suggested_player_list=suggested_player_list)
+        return team_data_service.edit_team_data_html(season_id, suggested_player_list=suggested_player_list)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -87,9 +87,9 @@ def add_suggested_players():
         for dbu_name in dbu_name_list:
             player = player_service.create_player(dbu_name, dbu_name, team_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)

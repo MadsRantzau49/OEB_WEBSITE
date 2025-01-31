@@ -3,13 +3,13 @@ from Service.MatchService import MatchService
 from Repositories.TeamDB import TeamDB
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
-from Service.EditTeamDataService import EditTeamDataService
+from Service.TeamDataService import TeamDataService
 # Initialize the service
 match_service = MatchService()
 team_DB = TeamDB()
 team_service = TeamService()
 season_service = SeasonService()
-edit_team_data_service = EditTeamDataService()
+team_data_service = TeamDataService()
 # Define the Blueprint
 match_controller = Blueprint('match_controller', __name__)
 
@@ -21,10 +21,10 @@ def create_match():
         
         match = match_service.create_match(match_url, season_id)
         suggested_matches = season_service.get_suggested_season_matches(season_id)
-        return edit_team_data_service.edit_team_data_html(season_id, suggested_matches=suggested_matches)
+        return team_data_service.edit_team_data_html(season_id, suggested_matches=suggested_matches)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -37,10 +37,10 @@ def delete_match():
         
         match_service.delete_match(match_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
         
@@ -52,10 +52,10 @@ def update_all_season_matches_information():
         
         match_service.update_all_season_matches_information(season_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -66,10 +66,10 @@ def get_suggested_season_matches():
 
         suggested_matches = season_service.get_suggested_season_matches(season_id)
         
-        return edit_team_data_service.edit_team_data_html(season_id, suggested_matches=suggested_matches)
+        return team_data_service.edit_team_data_html(season_id, suggested_matches=suggested_matches)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -81,9 +81,9 @@ def add_suggested_matches():
         
         for match_url in match_url_list:
             match_service.create_match(match_url, season_id)
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)

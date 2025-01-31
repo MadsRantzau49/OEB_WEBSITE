@@ -1,11 +1,11 @@
 from flask import Blueprint, request, render_template
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
-from Service.EditTeamDataService import EditTeamDataService
+from Service.TeamDataService import TeamDataService
 # Initialize the service
 team_service = TeamService()
 season_service = SeasonService()
-edit_team_data_service = EditTeamDataService()
+team_data_service = TeamDataService()
 # Define the Blueprint
 season_controller = Blueprint('season_controller', __name__)
 
@@ -20,10 +20,10 @@ def create_season():
 
         season = season_service.create_season(team_id, name, season_url, start_date, end_date)
 
-        return edit_team_data_service.edit_team_data_html(season.id)
+        return team_data_service.edit_team_data_html(season.id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season.id, error=e)
+        return team_data_service.edit_team_data_html(season.id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -33,10 +33,10 @@ def change_season():
     try:
         season_id = request.form['season_id']      
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -52,9 +52,9 @@ def edit_season():
 
         season = season_service.update_season(season_id, season_name, season_url, season_start, season_end)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)

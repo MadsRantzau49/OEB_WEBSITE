@@ -10,5 +10,5 @@ class Fine(Base):
     description = Column(String(255), nullable=False)
     amount = Column(Integer, nullable=True)
     match_id = Column(Integer, ForeignKey('matches.id'), nullable=True)
-    team_id = Column(Integer, ForeignKey('teams.id'), nullable=False)
+    team_id = Column(Integer, ForeignKey('teams.id'), nullable=True)
     date = Column(Date, nullable=False, default=datetime.date.today)

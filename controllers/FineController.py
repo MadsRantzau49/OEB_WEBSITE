@@ -1,11 +1,11 @@
 from flask import Blueprint, request, render_template
 from Service.SeasonService import SeasonService
-from Service.EditTeamDataService import EditTeamDataService
+from Service.TeamDataService import TeamDataService
 from Service.FineService import FineService
 
 # Initialize the service
 season_service = SeasonService()
-edit_team_data_service = EditTeamDataService()
+team_data_service = TeamDataService()
 fine_service = FineService()
 
 # Define the Blueprint
@@ -22,10 +22,10 @@ def add_fine():
 
         fine_service.add_fine(name, description, amount, season_id)
                 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 
@@ -41,10 +41,10 @@ def edit_fine():
 
         fine_service.edit_fine(fine_id, name, description, amount)
                 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
     
@@ -57,10 +57,10 @@ def remove_fine():
     
         fine_service.remove_fine(fine_id)
                 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 

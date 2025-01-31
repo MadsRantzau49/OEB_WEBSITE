@@ -2,7 +2,7 @@ from flask import render_template
 from .TeamService import TeamService
 
 
-class EditTeamDataService:
+class TeamDataService:
     def __init__(self):
          self.team_service = TeamService()
     def edit_team_data_html(self, season_id, *args, **kwargs):

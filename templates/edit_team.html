@@ -18,13 +18,19 @@
     <div class="container">
         <h1>Team Name: {{ edit_team_data.team.team_name }}</h1>
 
+        <form action="/see_team_as_admin" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+            <input type="submit" value="SE HOLD (Her kan du også tildele bøder)">
+        </form>
+
+
         <!-- Finance -->
         <div class="divider">
             <h2>Finance</h2>
             <form action="/add_mobilepay_transactions" method="POST" enctype="multipart/form-data">
                 <input type="file" name="mobilepay_transaction_file" accept=".xlsx" required>
                 <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
-                <input type="submit" value="Add New Fine"></td>
+                <input type="submit" value="Add New Fine">
             </form>
         </div>
 

@@ -1,4 +1,4 @@
-class EditTeamData:
+class TeamData:
     def __init__(self, team, season, players, seasonList, matches, fines):
         self.team = team
         self.season = season

@@ -1,9 +1,9 @@
 from flask import Blueprint, request, render_template
-from Service.EditTeamDataService import EditTeamDataService
+from Service.TeamDataService import TeamDataService
 from Service.FinanceService import FinanceService
 
 # Initialize the service
-edit_team_data_service = EditTeamDataService()
+team_data_service = TeamDataService()
 finance_service = FinanceService()
 
 # Define the Blueprint
@@ -19,9 +19,9 @@ def add_file():
         
         finance_service.update_team_finance(mobilePayTransaction, season_id)
 
-        return edit_team_data_service.edit_team_data_html(season_id)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
-        return edit_team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
