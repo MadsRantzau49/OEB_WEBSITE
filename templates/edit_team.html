@@ -16,10 +16,10 @@
     {% endif %}
 
     <div class="container">
-        <h1>Team Name: {{ edit_team_data.team.team_name }}</h1>
+        <h1>Team Name: {{ team_data.team.team_name }}</h1>
 
         <form action="/see_team_as_admin" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
             <input type="submit" value="SE HOLD (Her kan du også tildele bøder)">
         </form>
 
@@ -29,7 +29,7 @@
             <h2>Finance</h2>
             <form action="/add_mobilepay_transactions" method="POST" enctype="multipart/form-data">
                 <input type="file" name="mobilepay_transaction_file" accept=".xlsx" required>
-                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <input type="submit" value="Add New Fine">
             </form>
         </div>
@@ -46,6 +46,7 @@
                         <th>Name</th>
                         <th>Description</th>
                         <th>Price</th>
+                        <th>Type</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -54,23 +55,35 @@
                         <td><input type="text" name="fine_name" placeholder="Fine Name" required></td>
                         <td><input type="text" name="fine_description" placeholder="Fine Description" required></td>
                         <td><input type="number" name="fine_amount" value=0 required></td>
-                        <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                        <td>
+                            <select name="fine_dropdown">
+                                {% for type in team_data.type_list %}
+                                    {% if type != team_data.FineType.CUSTOM_FINE and type != team_data.FineType.MATCH_FINE %}  
+                                        <option value="{{ type.value }}" {% if type == team_data.FineType.TEAM_FINE %}selected{% endif %}>
+                                            {{ type.value }}
+                                        </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                         <td><input type="submit" value="Add New Fine"></td>
                     </form>
-                    {% for fine in edit_team_data.fines %}
+                    {% for fine in team_data.fines %}
                         <tr>
                             <form action="/edit_fine" method="POST">
                                 <td><input type="text" name="fine_name" value="{{ fine.name }}" required></td>
                                 <td><input type="textarea" name="fine_description" value="{{ fine.description }}" required></td>
                                 <td><input type="number" name="fine_amount"value="{{ fine.amount }}" required></td>
+                                <td>{{fine.fine_type.value}}</td>
                                 <input type="hidden" name="fine_id" value="{{ fine.id }}">
-                                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                 <td><input type="submit" value="Edit Fine">
                             </form>                
 
                             <form action="/remove_fine" method="POST" style="display:inline;">
                                 <input type="hidden" name="fine_id" value="{{ fine.id }}">
-                                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                 <input type="submit" value="Remove">
                             </form>
                             </td>
@@ -102,24 +115,24 @@
                     <form action="/add_player" method="POST">
                         <td><input type="text" name="player_name" placeholder="DBU Name" required></td>
                         <td><input type="text" name="mobilepay_name" placeholder="MobilePay Name" required></td>
-                        <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
-                        <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                        <input type="hidden" name="team_id" value="{{ team_data.team.id }}">
+                        <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                         <td><input type="submit" value="Add New Player"></td>
                     </form>
-                    {% for player in edit_team_data.players %}
+                    {% for player in team_data.players %}
                         <tr>
                             <form action="/edit_player_name" method="POST" style="display:inline;">
                             <td><input type="text" name="dbu_name" value="{{ player.dbu_name }}"></td>
                             <td><input type="text" name="mobilepay_name" value="{{ player.mobilepay_name }}"></td>
                             <td>
-                                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                 <input type="hidden" name="player_id" value="{{ player.id }}"> 
                                 <input type="submit" value="Edit">
                             </form>
 
                             <form action="/remove_player" method="POST" style="display:inline;">
                                 <input type="hidden" name="player_id" value="{{ player.id }}">
-                                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                 <input type="submit" value="Remove">
                             </form>
                             </td>
@@ -135,8 +148,8 @@
                             <td colspan="3">Suggested players is listed below</td>
                         </tr>
                         <form action="/add_suggested_players" method="POST">
-                            <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
-                            <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
+                            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                            <input type="hidden" name="team_id" value="{{ team_data.team.id }}">
 
                         {% for suggested_player in suggested_player_list %}
                             <tr>
@@ -160,7 +173,7 @@
                 </tbody>
             </table>
             <form action="/get_suggested_players_list" method="POST" style="display:inline;">
-                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <input type="submit" value="See suggested players">
             </form>
         </div>
@@ -182,10 +195,10 @@
                 <tbody>
                 <form action="/add_match" method="POST">
                     <td><input type="text" name="match_url" placeholder="Match URL" required></td>
-                    <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                     <td colspan="4"><input type="submit" value="Add New Match"></td>
                 </form>
-                {% for match in edit_team_data.matches %}
+                {% for match in team_data.matches %}
                     <tr>
                         <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
                         {% if match.home_club %}
@@ -200,7 +213,7 @@
                         {% endif %}
                         <td><form action="/remove_match" method="POST" style="display:inline;">
                             <input type="hidden" name="match_id" value="{{ match.id }}">
-                            <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                             <input type="submit" value="Remove">
                         </form></td>
                     </tr>
@@ -214,7 +227,7 @@
                         <td colspan="5">Suggested matches is listed below</td>
                     </tr>
                     <form action="/add_suggested_matches" method="POST">
-                    <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
 
                     {% for match in suggested_matches %}
                             <tr>
@@ -238,11 +251,11 @@
                 </tbody>
             </table>
             <form action="/update_all_season_matches_information" method="POST" style="display:inline;">
-                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <input type="submit" value="Update matches">
             </form>
             <form action="/get_suggested_season_matches" method="POST"style="display:inline;">
-                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <input type="submit" value="Get suggested matches">
             </form>
         </div>
@@ -251,12 +264,12 @@
         <div class="divider">
             <!-- CHANGE SEASON -->
             <div class="seasons">
-                <h2>Season: {{edit_team_data.season.name}} </h2>
+                <h2>Season: {{team_data.season.name}} </h2>
             
                 <form action="/change_season" method="POST">
                     <select name="season_id" onchange="this.form.submit()">
                         <option value="">Select Season</option>
-                        {% for season in edit_team_data.seasonList %}
+                        {% for season in team_data.seasonList %}
                             <option value="{{ season.id }}">{{ season.name }}</option>
                         {% else %}
                             <option>No seasons available</option>
@@ -280,25 +293,25 @@
                 <label for="season_end">End Date:</label>
                 <input type="date" name="season_end" id="season_end">
 
-                <input type="hidden" name="team_id" value="{{ edit_team_data.team.id }}">
+                <input type="hidden" name="team_id" value="{{ team_data.team.id }}">
                 <button type="submit">Create Season</button>
             </form>
             <br>
             <form action="/edit_season" method="POST">
                 <h3>Edit Season</h3>
                 <h5>Start and End date er used for scoping mobilepay transactions. Therefore, ensure start date are before anyone sent any money for that season and end date is when everyhing is settled.</h5>
-                <input type="text" name="season_name" value={{edit_team_data.season.name}} required>
+                <input type="text" name="season_name" value={{team_data.season.name}} required>
 
                 <label for="season_url">Season DBU URL:</label>
-                <input type="text" name="season_url" value="{{edit_team_data.season.season_url}}">
+                <input type="text" name="season_url" value="{{team_data.season.season_url}}">
 
                 <label for="season_start">Start Date:</label>
-                <input type="date" name="season_start" id="season_start" value={{edit_team_data.season.start_date}} required>
+                <input type="date" name="season_start" id="season_start" value={{team_data.season.start_date}} required>
 
                 <label for="season_end">End Date:</label>
-                <input type="date" name="season_end" id="season_end" value={{edit_team_data.season.end_date}}>
+                <input type="date" name="season_end" id="season_end" value={{team_data.season.end_date}}>
                 
-                <input type="hidden" name="season_id" value="{{ edit_team_data.season.id }}">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <button type="submit">Edit Season</button>
             </form>
         </div>

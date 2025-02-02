@@ -59,6 +59,23 @@ def update_all_season_matches_information():
     except Exception as e:
         return render_template('index.html', error=e)
 
+@match_controller.route("/update_match_information", methods=["POST"])
+def update_match_information():
+    try:
+        season_id = request.form.get("season_id",None)
+        match_id = request.form["match_id"]
+
+        match_service.update_match_information(match_id)
+
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
+
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+
+
+
 @match_controller.route("/get_suggested_season_matches", methods=["POST"])
 def get_suggested_season_matches():
     try:
@@ -82,6 +99,23 @@ def add_suggested_matches():
         for match_url in match_url_list:
             match_service.create_match(match_url, season_id)
         return team_data_service.edit_team_data_html(season_id)
+    
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+    
+@match_controller.route("/change_clothes_washer", methods=["POST"])
+def change_clothes_washer():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        match_id = request.form["match_id"]
+        player_id = request.form["player_id"]
+
+        match_service.change_match_washer(match_id, player_id)
+
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
     
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)

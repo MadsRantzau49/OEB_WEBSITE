@@ -2,20 +2,11 @@ Mangler før production:
 
 (ADMIN) knap til at opdatere alt data.
 -Opdater kampe
+-Opdater Finance (excel)
 -Opdater vaskealgoritme
 -Opdater total bøder pr spiller
 
 (ADMIN) knap til at gå til edit_team
-
-teams:
-liste med alle spillere
--Navn
--Betalt
--Skylder i alt
--Balance
--Actions
--- Se spillerdata
--- (ADMIN) tilføj bøde
 
 spillerdata:
 -Knap til at gå tilbage til teams

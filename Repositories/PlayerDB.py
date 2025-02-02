@@ -47,3 +47,10 @@ class PlayerDB:
         self.db_session.merge(player)
         self.db_session.commit()
         return player
+    
+    @session_handler
+    def find_player_by_dbu_name(self, dbu_name, team_id):
+        return self.db_session.query(Player).filter(
+            Player.dbu_name == dbu_name,
+            Player.team_id == team_id
+            ).first()

@@ -105,3 +105,15 @@ input[type="submit"]:hover {
 .match-list li:hover {
     background: #cce5ff; /* Darker blue on match hover */
 }
+
+.overpaid{
+    color: green;
+}   
+
+.perfectpaid{
+    color: black;
+}
+
+.underpaid{
+    color: red;
+}

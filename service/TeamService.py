@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from Service.MatchService import MatchService
 from Model.TeamData import TeamData
 from Repositories.FineDB import FineDB
+from Model.FineType import FineType
+
 class TeamService:
     def __init__(self):
         # Initialize the other layers
@@ -69,10 +71,11 @@ class TeamService:
         players = self.get_all_team_players(team.id)
         seasonList = self.season_service.get_all_seasons_from_team(team.id)        
         matches = self.match_service.get_matches_by_season(season.id)
-        fines = self.fine_DB.get_all_team_fines(team.id)
+        fines = self.fine_DB.get_team_fines_without_custom_type(team.id)
+        type_list = [t for t in FineType]
     
-        return TeamData(team, season, players, seasonList, matches, fines)
-    
+        return TeamData(team, season, players, seasonList, matches, fines, type_list)
+
     def get_team_by_id(self, team_id):
         return self.team_DB.get_team_by_id(team_id)
     

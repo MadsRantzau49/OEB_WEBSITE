@@ -3,12 +3,18 @@ from bs4 import BeautifulSoup
 import re
 import json
 from Repositories.MatchDB import MatchDB
+from Repositories.TeamDB import TeamDB
+from Repositories.SeasonDB import SeasonDB
 from Model.Match import Match
+from Service.FineService import FineService
 import sqlite3
 
 class MatchService:
     def __init__(self):
         self.match_db = MatchDB()
+        self.team_db = TeamDB()
+        self.season_db = SeasonDB()
+        self.fine_service = FineService()
 
     def create_match(self, match_url_id, season_id):
         match_already_exist = self.match_already_exist(match_url_id, season_id)
@@ -52,9 +58,18 @@ class MatchService:
             soup = self.get_match_info_from_dbu(match.match_url_id)
             match.home_club = self.get_home_club_name(soup)
             match.away_club = self.get_away_club_name(soup)
+            # Update the match to at least show what the two clubs are.
+            self.update_match(match)
 
             match.home_scored = self.get_home_team_scored_goals(soup)
             match.away_scored = self.get_away_team_scored_goals(soup)
+            # Update in case get lineup crashes.
+            self.update_match(match)
+
+            season = self.season_db.find_season_by_id(match.season_id)
+            team = self.team_db.get_team_by_id(season.team_id)
+            lineup = self.find_team_lineup(match.match_url_id, team.club_name)
+            self.fine_service.update_match_fine(lineup, match, team.id)
 
             return self.update_match(match)
 
@@ -115,5 +130,7 @@ class MatchService:
             return False
         raise Exception("Club name not found in match, ensure the club name is equal to DBU database.")
 
-    def get_match_club_location_scored_goals(self, soup, location):
-        return 5
+    def change_match_washer(self, match_id, player_id):
+        match = self.match_db.find_match_by_id(match_id)
+        match.clothes_washer = player_id
+        self.update_match(match)

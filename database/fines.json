@@ -1,9 +1,0 @@
-{
-    "won_match": 10,
-    "draw_match": 20,
-    "lost_match": 30,
-    "conceded_goal": 5,
-    "scored_goal": 2,
-    "red_card_fine": 100,
-    "yellow_card_fine": 50
-}

@@ -19,8 +19,8 @@ def add_fine():
         name = request.form["fine_name"]
         description = request.form["fine_description"]
         amount = request.form["fine_amount"]
-
-        fine_service.add_fine(name, description, amount, season_id)
+        type_value = request.form["fine_dropdown"]
+        fine_service.add_fine(name, description, amount, season_id, type_value)
                 
         return team_data_service.edit_team_data_html(season_id)
     
@@ -61,6 +61,26 @@ def remove_fine():
     
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+    
+@fine_controller.route("/give_player_fine", methods=["POST"])
+def give_player_fine():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        fine_id = request.form["fine_id"]
+        name = request.form["fine_name"]
+        description = request.form["fine_description"]
+        amount = request.form["fine_amount"]
+        player_id = request.form["player_id"]
+    
+        fine_service.add_player_fine(season_id, fine_id, name, description, amount, player_id)
+                
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
+    
+    except ValueError as e:
+        return team_data_service.user_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
 

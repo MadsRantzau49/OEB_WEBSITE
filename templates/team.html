@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flask Website</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/team.css') }}">
+    <script src="{{ url_for('static', filename='javascript/team.js') }}" defer></script>
 </head>
 <body>
     <!-- Display error message if it exists -->
@@ -16,7 +17,7 @@
     {% endif %}
 
     <div class="container">
-        <h1>Team Name: {{ user_team_data.team.team_name }}</h1>
+        <h1>Team Name: {{ team_data.team.team_name }}</h1>
 
         <!-- Players -->        
         <div class="divider">
@@ -36,31 +37,56 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for player in user_team_data.players %}
+                    {% for player in team_data.players %}
                         <tr>
                             <td>{{ player.dbu_name }}</td>
                             <td>{{ player.total_fines }}</td>
                             <td>{{ player.deposit }}</td>
-                            <td>{{ player.balance }}</td>
+                            <td id="player_balance" 
+                                class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
+                                {{ player.balance }}
+                            </td>
+                        
+                        
+                            
                             <td>
                                 <form action="/see_player" method="POST" style="display:inline;">
                                     <input type="hidden" name="player_id" value="{{ player.id }}">
-                                    <input type="hidden" name="season_id" value="{{ user_team_data.season.id }}">
+                                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                     <input type="submit" value="Se Bøder">
                                 </form>
-                                {% if is_admin %}
-                                    <td>
-                                        <form action="/see_player" method="POST" style="display:inline;">
-                                            <input type="text" name="fine_name" placeholder="Navn" required>
-                                            <input type="text" name="fine_description" placeholder="Beskrivelse" required>
-                                            <input type="number" name="fine_amount" value=0 required>
-                                            <input type="hidden" name="player_id" value="{{ player.id }}">
-                                            <input type="hidden" name="fine_id" value=0>
-                                            <input type="submit" value="Opret bøde">
-                                        </form>
-                                   </td>
-                                {% endif %}
                             </td>
+                            {% if is_admin %}
+                                <td>
+                                    <form action="/give_player_fine" method="POST" style="display:inline;">
+                                        <label for="fine_dropdown">Vælg bøde:</label>
+                                        <select name="fine_dropdown" class="fine_dropdown">
+                                            <!-- 
+                                                This code is the worst but it works for now.
+                                                It just split the string from |~ 
+                                                which is two random special signs i dont expect to be used in a name or description XD.
+                                                You can split and object into JSON format but i dont wanna waste time on it because it doesnt work in first try ://
+                                                FUCK JS
+                                            -->
+                                            <option value="0|~ |~ |~0|~">Bøder</option>
+                                            {% for fine in team_data.fines %}
+                                                <option value="{{ fine.id }}|~{{ fine.name }}|~{{ fine.description }}|~{{ fine.amount }}">{{ fine.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                
+                                        <input type="text" class="fine_name" name="fine_name" placeholder="Name" required>
+                                        <input type="text" class="fine_description" name="fine_description" placeholder="Description" required>
+                                        <input type="number" class="fine_amount" name="fine_amount" value="0" required>
+                                
+                                        <input type="hidden" name="player_id" value="{{ player.id }}">
+                                        <input type="hidden" class="fine_id" name="fine_id" value="0">
+                                        <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                        <input type="submit" value="Create Fine">
+                                    </form>
+                                </td>
+                                
+                            {% endif %}
                         </tr>
                     {% else %}
                         <tr>
@@ -85,26 +111,54 @@
                         <th>Tøj Vasker</th>
                         <th>Beløb</th>
                         {% if is_admin %}
-                            <th>Ændre vasker</th>                     
+                            <th>Ændre vasker</th>
+                            <th>Opdater kamp</th>                     
                         {% endif %}
                     </tr>
                 </thead>
                 <tbody>
-                {% for match in user_team_data.matches %}
+                {% for match in team_data.matches %}
                     <tr>
                         <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
                         {% if match.home_club %}
-                        <td>{{ match.home_club if match.home_club is not none else '' }}</td>
-                        <td>{{ match.away_club if match.away_club is not none else '' }}</td>
-                        <td>
-                            {{ match.home_scored if match.home_scored is not none else '' }} - 
-                            {{ match.away_scored if match.away_scored is not none else '' }}
-                        </td>
+                            <td>{{ match.home_club if match.home_club is not none else '' }}</td>
+                            <td>{{ match.away_club if match.away_club is not none else '' }}</td>
+                            <td>
+                                {{ match.home_scored if match.home_scored is not none else '' }} - 
+                                {{ match.away_scored if match.away_scored is not none else '' }}
+                            </td>
                         {% else %}
-                            <td colspan="3">Kamp data ikke opdateret endnu, kontakt bødekasseformand for at opdatere</td>
+                            <td colspan="3">Kamp data ikke opdateret endnu, kontakt bødekasseformand for at opdatere
+                            </td>
                         {% endif %}
-                        <td>{{match.clothes_washer}}</td>
+                        <td>{{match.clothes_washer_name}}</td>
                         <td>{{match.fine_amount}}</td>
+                        {% if is_admin %}
+                            <td>
+                                <form action="/change_clothes_washer" method="POST">
+                                    <select name="player_id" onchange="this.form.submit()">
+                                        <option value="">Vælg Tøjvasker</option>
+                                        {% for player in team_data.players %}
+                                            <option value="{{ player.id }}">{{ player.dbu_name }}</option>
+                                        {% else %}
+                                            <option>Ingen spillere fundet</option>
+                                        {% endfor %}
+                                    </select>
+                                    <input type="hidden" name="match_id" value="{{ match.id }}">
+                                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                    <!-- Hidden submit button to support automatic form submission -->
+                                    <noscript><input type="submit" value="Submit"></noscript>
+                                </form>
+                            </td>    
+
+                            <td>
+                                <form action="/update_match_information" method="POST" style="display:inline;">
+                                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                    <input type="hidden" name="match_id" value="{{ match.id }}">
+                                    <input type="submit" value="Opdater Kamp">
+                                </form>
+                          </td>
+                        {% endif %}
                     </tr>
                 {% else %}
                 <tr>
@@ -129,7 +183,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for fine in user_team_data.fines %}
+                    {% for fine in team_data.fines %}
                         <tr>
                                 <td>{{ fine.name }}</td>
                                 <td>{{ fine.description }}</td>
@@ -149,12 +203,12 @@
         <div class="divider">
             <!-- CHANGE SEASON -->
             <div class="seasons">
-                <h2>Season: {{user_team_data.season.name}} </h2>
+                <h2>Season: {{team_data.season.name}} </h2>
             
                 <form action="/change_team_user_season" method="POST">
                     <select name="season_id" onchange="this.form.submit()">
                         <option value="">Vælg Sæson</option>
-                        {% for season in user_team_data.seasonList %}
+                        {% for season in team_data.seasonList %}
                             <option value="{{ season.id }}">{{ season.name }}</option>
                         {% else %}
                             <option>Ingen sæsoner tilgængelige</option>
