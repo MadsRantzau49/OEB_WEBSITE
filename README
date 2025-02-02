@@ -9,23 +9,16 @@ Mangler før production:
 (ADMIN) knap til at gå til edit_team
 
 spillerdata:
+-penge overført i alt
+-bøder i alt
+-balance
 -Knap til at gå tilbage til teams
 -Navn (overskrift)
 -Data fra DB
 -Liste med alle bøder de har fået
 -(ADMIN) skal kunne fjerne bøder
 
-kampe:
--link
--hjemmehold
--udehold
--resultat
--hvem der vasket tøj
--bøde (beløb)
---(ADMIN) tilføj/fjern/edit vasker
---(ADMIN) opdater enkelt kamp
-
-Liste med vasketøj
+Liste med vasketøj:
 -(den er lavet)
 --Det skal fungere sådan at top 3 navne skal selv finde ud af hvem der vasker. 
 
@@ -38,21 +31,7 @@ Liste med udgifter (penge brugt på øl)
 
 Regler og beskrivelse af hvordan bødekasse systemet fungere. 
 
-Bøder:
-Opret bøder
--vælg default bøde
---Man skal have muligheden for at justere prisen men der skal være en default value
--Customised bøde. 
---Det skal være muligt under teams at lave en hjemmelavet som ikke står i systemet
----Den kan bruges til hvis folk har sendt fra forkert nummer eller whatever
 
-spillerdata:
-Navn
-penge overført i alt
-bøder i alt
-balance
-Liste med alle bøder
-liste med alle kampe man har spillet i
 
 Vasketøj:
 Automatisk oprettelse af fair vaskeplan.
