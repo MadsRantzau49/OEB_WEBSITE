@@ -89,7 +89,7 @@ def see_team_as_user():
 
 @team_controller.route("/<team_name>", methods=["GET"])
 def see_team_as_user_url(team_name):
-    try:
+    # try:
         team_name = team_name.upper()
 
         team = team_service.get_team_by_name(team_name)
@@ -100,5 +100,5 @@ def see_team_as_user_url(team_name):
 
         return team_data_service.user_team_data_html(season_id, is_admin=False)
     
-    except Exception as e:
-        return render_template('index.html', error=e)
+    # except Exception as e:
+    #     return render_template('index.html', error=e)
