@@ -25,7 +25,7 @@ def manifest(path):
     print(f"\n\n\n{path}\n\n\n")
     manifest_data = {
         "name": "Essakedøb",
-        "short_name": "døb",
+        "short_name": "Essakedøb",
         "start_url": "/"+path,  # Dynamic start URL
         "display": "standalone",
         "background_color": "#ffffff",
