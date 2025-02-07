@@ -113,3 +113,5 @@ class TeamService:
         return self.team_DB.edit_team(team)
         
         
+    def get_team_by_name(self, team_name):
+        return self.team_DB.get_team_by_name(team_name)

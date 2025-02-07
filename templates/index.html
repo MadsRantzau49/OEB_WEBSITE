@@ -16,9 +16,9 @@
     {% endif %}
     <button onclick="window.location.href='/admin_index';">Admin</button>
     <h2>Vælg Hold</h2>
-    <form action="/select_team" method="POST">
-        <label for="team_username">Hold Brugernavn:</label>
-        <input type="text" id="team_username" name="team_username" required><br><br>
+    <form action="/see_team_as_user" method="POST">
+        <label for="team_name">Hold Brugernavn:</label>
+        <input type="text" name="team_name" required><br><br>
 
         <button type="submit">Rediger Hold</button>
     </form>

@@ -121,8 +121,8 @@ class FinanceService:
                     continue
 
                 if transaction_type == "Pay out":
-                    
-                    row = MobilePay_Row(name=name, message=message, amount=amount, date=date)
+                    date_shorted = pd.to_datetime(date).strftime("%Y-%m-%d")
+                    row = MobilePay_Row(name=name, message=message, amount=amount, date=date_shorted)
                     mobilepay_rows.append(row)
             return mobilepay_rows
         except Exception as e:

@@ -38,7 +38,7 @@
                             <th>Beløb</th>
                             <th>Date</th>
                             {% if is_admin %}
-                                <th>Slet bøde</th>
+                                <th>Slet</th>
                             {% endif %}
                         </tr>
                     </thead>
@@ -57,7 +57,7 @@
                                             <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                             <input type="hidden" name="player_id" value="{{ highlighted_player.id }}">
                                             <input type="hidden" name="is_admin" value="{{ is_admin }}">
-                                            <input type="submit" value="Delete Fine">
+                                            <input type="submit" value="x">
                                         </form>
                                     </td>
                                 {% endif %}
@@ -209,25 +209,28 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Match_ID</th>
-                        <th>Hjemme</th>
-                        <th>Ude</th>
+                        <th>Hjemme/Ude</th>
                         <th>Resultat</th>
-                        <th>Tøj Vasker</th>
                         <th>Beløb</th>
+                        <th>Tøj Vasker</th>
                         {% if is_admin %}
                             <th>Ændre vasker</th>
-                            <th>Opdater kamp</th>                     
+                            <th>Opdater</th>                     
                         {% endif %}
+                        <th>Match_ID</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for match in team_data.matches %}
                     <tr>
-                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
                         {% if match.home_club %}
-                            <td>{{ match.home_club if match.home_club is not none else '' }}</td>
-                            <td>{{ match.away_club if match.away_club is not none else '' }}</td>
+                            <td>
+                                {% if match.home_club is not none and match.away_club is not none %}
+                                    {{match.home_club}}
+                                    <br>-<br>
+                                    {{match.away_club}}
+                                {% endif %}
+                            </td>
                             <td>
                                 {{ match.home_scored if match.home_scored is not none else '' }} - 
                                 {{ match.away_scored if match.away_scored is not none else '' }}
@@ -236,8 +239,8 @@
                             <td colspan="3">Kamp data ikke opdateret endnu, kontakt bødekasseformand for at opdatere
                             </td>
                         {% endif %}
-                        <td>{{match.clothes_washer_name}}</td>
                         <td>{{match.fine_amount}}</td>
+                        <td>{{match.clothes_washer_name}}</td>
                         {% if is_admin %}
                             <td>
                                 <form action="/change_clothes_washer" method="POST">
@@ -260,10 +263,11 @@
                                 <form action="/update_match_information" method="POST" style="display:inline;">
                                     <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                                     <input type="hidden" name="match_id" value="{{ match.id }}">
-                                    <input type="submit" value="Opdater Kamp">
+                                    <input type="submit" value="Opdater">
                                 </form>
                           </td>
                         {% endif %}
+                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">DBU</a></td>
                     </tr>
                 {% else %}
                 <tr>
@@ -273,10 +277,12 @@
             
                 </tbody>
             </table>
-            <form action="/update_all_season_matches_information/user" method="POST" style="display:inline;">
-                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                <input type="submit" value="Update all matches">
-            </form>
+            {% if is_admin %}
+                <form action="/update_all_season_matches_information/user" method="POST" style="display:inline;">
+                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                    <input type="submit" value="Update all matches">
+                </form>
+            {% endif %}
         </div>
 
 

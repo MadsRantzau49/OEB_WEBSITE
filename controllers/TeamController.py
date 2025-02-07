@@ -20,7 +20,9 @@ def create_team():
         
         team = team_service.create_team(team_name, club_name, password)
     
-        return render_template("index.html", success="Team created successfully! You can now log in.")
+        season_id = season_service.find_latest_season_by_team_id(team.id).id
+
+        return team_data_service.edit_team_data_html(season_id)
 
     except Exception as e:
         return render_template("index.html", error=f"Error: {str(e)}")
@@ -62,10 +64,41 @@ def edit_team():
 
 @team_controller.route("/see_team_as_admin", methods=["POST"])
 def see_team_as_admin():
-    # try:
+    try:
         season_id = request.form["season_id"]
 
         return team_data_service.user_team_data_html(season_id, is_admin=True)
 
-    # except Exception as e:
-    #     return render_template('index.html', error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+
+@team_controller.route("/see_team_as_user", methods=["POST"])
+def see_team_as_user():
+    try:
+        team_name = request.form["team_name"].upper()
+
+        team = team_service.get_team_by_name(team_name)
+        if not team:
+            raise Exception("Forkert brugernavn, prøv igen.")
+        season_id = season_service.find_latest_season_by_team_id(team.id).id
+
+        return team_data_service.user_team_data_html(season_id, is_admin=False)
+
+    except Exception as e:
+        return render_template('index.html', error=e)
+
+@team_controller.route("/<team_name>", methods=["GET"])
+def see_team_as_user_url(team_name):
+    try:
+        team_name = team_name.upper()
+
+        team = team_service.get_team_by_name(team_name)
+        if not team:
+            raise Exception("Forkert brugernavn, prøv igen.")
+        
+        season_id = season_service.find_latest_season_by_team_id(team.id).id
+
+        return team_data_service.user_team_data_html(season_id, is_admin=False)
+    
+    except Exception as e:
+        return render_template('index.html', error=e)

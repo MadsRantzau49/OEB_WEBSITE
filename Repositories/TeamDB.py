@@ -39,3 +39,7 @@ class TeamDB:
         self.db_session.merge(team)
         self.db_session.commit()
         return team
+    
+    @session_handler
+    def get_team_by_name(self, team_name):
+        return self.db_session.query(Team).filter(Team.team_name == team_name).first()
