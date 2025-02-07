@@ -2,6 +2,7 @@ from flask import Blueprint, request, render_template
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
 from Service.TeamDataService import TeamDataService
+import traceback        
 
 
 # Initialize the service
@@ -101,4 +102,5 @@ def see_team_as_user_url(team_name):
         return team_data_service.user_team_data_html(season_id, is_admin=False)
     
     except Exception as e:
+        traceback.print_exc()
         return render_template('index.html', error=e)
