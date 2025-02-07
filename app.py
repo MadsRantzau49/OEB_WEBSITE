@@ -45,6 +45,30 @@ def manifest(path):
     }
     return jsonify(manifest_data)
 
+@app.route('/manifest.json/admin')
+def manifest_admin():
+    manifest_data = {
+        "name": "Essakedøb",
+        "short_name": "Essakedøb",
+        "start_url": "/admin_index",  # Dynamic start URL
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#000000",
+        "icons": [
+            {
+                "src": "/static/images/rejer_admin.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": "/static/images/rejer_admin.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    }
+    return jsonify(manifest_data)
+
 @app.route('/admin_index')
 def admin():
     return render_template('admin_index.html')
