@@ -120,7 +120,7 @@ def see_player_status():
     
 @player_controller.route("/delete_player_fine", methods=["POST"])
 def delete_player_fine():
-    # try:
+    try:
         season_id = request.form.get("season_id",None)
         is_admin = request.form.get("is_admin", False)
         player_id = request.form["player_id"]
@@ -134,7 +134,7 @@ def delete_player_fine():
         highlighted_player.balance = highlighted_player.total_deposit - highlighted_player.total_fines
         return team_data_service.user_team_data_html(season_id, highlighted_player=highlighted_player, is_admin=is_admin)
 
-    # except ValueError as e:
-    #     return team_data_service.user_team_data_html(season_id, error=e)
-    # except Exception as e:
-    #     return render_template('index.html', error=e)
+    except ValueError as e:
+        return team_data_service.user_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)

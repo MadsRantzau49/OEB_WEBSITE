@@ -22,7 +22,6 @@ def home():
 
 @app.route('/manifest.json/<path>')
 def manifest(path):
-    print(f"\n\n\n{path}\n\n\n")
     manifest_data = {
         "name": "Essakedøb",
         "short_name": "Essakedøb",

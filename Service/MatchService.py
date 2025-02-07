@@ -63,7 +63,6 @@ class MatchService:
 
             match.home_scored = self.get_home_team_scored_goals(soup)
             match.away_scored = self.get_away_team_scored_goals(soup)
-            # print(f"\n\n\n\n{match.home_scored}\n{match.away_scored}\n\n\n\n")
             # Update in case get lineup crashes.
             self.update_match(match)
 
