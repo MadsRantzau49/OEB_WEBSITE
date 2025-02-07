@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from Controllers.TeamController import team_controller  
 from Controllers.MatchController import match_controller 
 from Controllers.PlayerController import player_controller
@@ -19,6 +19,31 @@ app.register_blueprint(finance_controller)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/manifest.json/<path>')
+def manifest(path):
+    print(f"\n\n\n{path}\n\n\n")
+    manifest_data = {
+        "name": "Essakedøb",
+        "short_name": "døb",
+        "start_url": "/"+path,  # Dynamic start URL
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#000000",
+        "icons": [
+            {
+                "src": "/static/images/rejer.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": "/static/images/rejer.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    }
+    return jsonify(manifest_data)
 
 @app.route('/admin_index')
 def admin():

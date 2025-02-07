@@ -6,6 +6,8 @@
     <title>Flask Website</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/team.css') }}">
     <script src="{{ url_for('static', filename='javascript/team.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='javascript/registerServiceWorker.js') }}"></script>
+    <link rel="manifest" crossorigin="use-credentials" href="/manifest.json/{{ team_data.team.team_name }}">
 </head>
 <body>
     <!-- Display error message if it exists -->
