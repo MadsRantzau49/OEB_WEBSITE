@@ -1,5 +1,6 @@
 from Service.TeamService import TeamService
 from Model.MobilePayTransaction import MobilePayTransaction
+from Model.MobilePay_Row import MobilePay_Row
 from Repositories.FinanceDB import FinanceDB
 from Repositories.SeasonDB import SeasonDB
 from Repositories.PlayerDB import PlayerDB
@@ -31,20 +32,21 @@ class FinanceService:
         for file in team_files:
             self.finance_DB.delete_file(file)
 
-    def update_team_finance(self, mobilePayTransaction, season_id):
+    def update_player_deposit_by_season(self, player, season_id):
         try:
-            players = self.player_DB.get_players_by_team(mobilePayTransaction.team_id)
-
-            self.reset_all_team_players_deposit(players)
-
-
+            season = self.season_DB.find_season_by_id(season_id)
+            mobilePayTransaction = self.finance_DB.get_team_file(season.team_id)
+            player.total_deposit = 0
+            player.deposit_list = []
+            if not mobilePayTransaction:
+                return player
             file_stream = io.BytesIO(mobilePayTransaction.excel_file)
 
             df = pd.read_excel(file_stream, engine="openpyxl")
 
-            season = self.season_DB.find_season_by_id(season_id)
             start_date = pd.to_datetime(season.start_date)
             end_date = pd.to_datetime(season.end_date)
+
 
             # Process data line by line using the 'iterrows()' method, ignoring rows where date < 2024-03-10
             for index, row in df.iterrows():
@@ -57,7 +59,7 @@ class FinanceService:
                 name = row['Name']
                 # type_ = row['Type']
                 # number = row['Number']
-                message = row['Message']
+                message = row['Message'] if pd.notna(row['Message']) else "" 
                 amount = row['Amount']
                 currency = row['Currency']
                 transaction_type = row['Transaction type']
@@ -65,10 +67,13 @@ class FinanceService:
                 if transaction_type == "Pay out":
                     continue
 
-                for player in players:
-                    if player.mobilepay_name.lower() == name.lower() or player.dbu_name.lower() == str(message).lower().strip():
-                        player.deposit += amount
-                        self.player_DB.update_player(player)
+                if player.mobilepay_name.lower() == name.lower() or player.mobilepay_name.lower() == str(message).lower().strip():
+                    player.total_deposit += amount
+                    mobilepay_row = MobilePay_Row(name, message, amount, date=date)
+                    player.deposit_list.append(mobilepay_row)
+        
+            return player
+        
         except Exception as e:
             raise ValueError("Fejl opstod ved upload af filen. Prøv igen")
 
@@ -78,3 +83,48 @@ class FinanceService:
             player.deposit = 0
             self.player_DB.update_player(player)
     
+
+    def get_all_season_expenses(self, season_id):
+        try:
+            season = self.season_DB.find_season_by_id(season_id)
+
+            mobilePayTransaction = self.finance_DB.get_team_file(season.team_id)
+            if not mobilePayTransaction:
+                return []
+            file_stream = io.BytesIO(mobilePayTransaction.excel_file)
+
+            df = pd.read_excel(file_stream, engine="openpyxl")
+
+            start_date = pd.to_datetime(season.start_date)
+            end_date = pd.to_datetime(season.end_date)
+
+            # Process data line by line using the 'iterrows()' method, ignoring rows where date < 2024-03-10
+            
+            mobilepay_rows = []
+
+            for index, row in df.iterrows():
+                date = row['Date']
+                if end_date and date > end_date:
+                    continue
+                if date < start_date:
+                    continue
+
+                name = row['Name']
+                # type_ = row['Type']
+                # number = row['Number']
+                message = row['Message'] if pd.notna(row['Message']) else "" 
+                amount = row['Amount']
+                currency = row['Currency']
+                transaction_type = row['Transaction type']
+
+                if transaction_type == "Pay in":
+                    continue
+
+                if transaction_type == "Pay out":
+                    
+                    row = MobilePay_Row(name=name, message=message, amount=amount, date=date)
+                    mobilepay_rows.append(row)
+            return mobilepay_rows
+        except Exception as e:
+            raise ValueError("Fejl opstod ved upload af filen. Prøv igen")
+        

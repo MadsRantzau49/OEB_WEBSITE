@@ -134,3 +134,20 @@ class FineService:
             amount += fine_amounts[FineType.LOSE_FINE] if not away_won and not draw else 0
 
         return amount
+
+    def update_player_fines_by_season(self, player, season_id):
+        player_fines = self.player_fine_DB.get_all_player_fines_by_players_id_and_season(player.id, season_id)
+        player.total_fines = 0
+        player.fine_list = []
+        for player_fine in player_fines:
+            fine = self.fine_db.get_fine_by_id(player_fine.fine_id)
+            fine.date = player_fine.date
+            fine.player_fine_id = player_fine.id
+            player.total_fines += fine.amount
+            player.fine_list.append(fine)
+        return player
+            
+    def delete_player_fine(self, player_fine_id):
+        player_fine = self.player_fine_DB.get_player_fine_by_id(player_fine_id)
+        self.player_fine_DB.remove_player_fine(player_fine)
+

@@ -6,5 +6,5 @@ class MobilePayTransaction(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     excel_file = Column(LargeBinary, nullable=False)  # Store the Excel file as binary data
-    team_id = Column(Integer, ForeignKey('teams.id'), nullable=False)  # Foreign key to the Teams
+    team_id = Column(Integer, ForeignKey('teams.id', ondelete="CASCADE"), nullable=False)  # Foreign key to the Teams
 

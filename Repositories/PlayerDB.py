@@ -22,7 +22,7 @@ class PlayerDB:
     
     @session_handler
     def player_already_exist(self, name_type, name: str, team_id) -> bool:
-        player = self.db_session.query(Player).filter(name_type == name, team_id == team_id).first()
+        player = self.db_session.query(Player).filter(name_type == name, Player.team_id == team_id).first()
         return player is not None
 
     @session_handler

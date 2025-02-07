@@ -9,5 +9,5 @@ class Season(Base):
     season_url = Column(String, nullable=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
-    team_id = Column(Integer, ForeignKey('teams.id'))  # Foreign key to Team
+    team_id = Column(Integer, ForeignKey('teams.id', ondelete="CASCADE"))  # Foreign key to Team
 

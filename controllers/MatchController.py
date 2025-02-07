@@ -58,6 +58,20 @@ def update_all_season_matches_information():
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+    
+@match_controller.route("/update_all_season_matches_information/user", methods=["POST"])
+def update_all_season_matches_information_user():
+    try:
+        season_id = request.form.get("season_id",None)
+        
+        match_service.update_all_season_matches_information(season_id)
+        return team_data_service.user_team_data_html(season_id)
+
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+
 
 @match_controller.route("/update_match_information", methods=["POST"])
 def update_match_information():

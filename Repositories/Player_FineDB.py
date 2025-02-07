@@ -16,13 +16,20 @@ class Player_FineDB:
         return player_fine
     
     @session_handler
-    def get_all_player_fines_by_players_id(self, player_id):
-        return self.db_session.query(Player_Fine).filter(Player_Fine.player_id == player_id).all()
+    def get_all_player_fines_by_players_id_and_season(self, player_id, season_id):
+        return self.db_session.query(Player_Fine).filter(
+            Player_Fine.player_id == player_id,
+            Player_Fine.season_id == season_id
+            ).all()
     
     @session_handler
     def remove_player_fine(self, player_fine):
         self.db_session.delete(player_fine)
         self.db_session.commit()
+
+    @session_handler
+    def get_player_fine_by_id(self, fine_id):
+        return self.db_session.query(Player_Fine).filter(Player_Fine.id == fine_id).first()
 
     @session_handler
     def delete_all_player_fines_by_match_id(self, fine_id):

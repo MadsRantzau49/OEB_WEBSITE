@@ -3,11 +3,17 @@ from Service.PlayerService import PlayerService
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
 from Service.TeamDataService import TeamDataService
+from Service.FinanceService import FinanceService
+from Service.FineService import FineService
+from Service.MatchService import MatchService
 # Initialize the service
 player_service = PlayerService()
 team_service = TeamService()
 season_service = SeasonService()
 team_data_service = TeamDataService()
+finance_service = FinanceService()
+fine_service = FineService()
+match_service = MatchService()
 # Define the Blueprint
 player_controller = Blueprint('player_controller', __name__)
 
@@ -93,3 +99,42 @@ def add_suggested_players():
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+    
+@player_controller.route("/see_player_status", methods=["POST"])
+def see_player_status():
+    try:
+        season_id = request.form.get("season_id",None)
+        is_admin = request.form.get("is_admin", False)
+        player_id = request.form["player_id"]
+
+        player = player_service.get_player_from_id(player_id)
+        highlighted_player = finance_service.update_player_deposit_by_season(player, season_id)
+        highlighted_player = fine_service.update_player_fines_by_season(player, season_id)
+        highlighted_player.balance = highlighted_player.total_deposit - highlighted_player.total_fines
+        return team_data_service.user_team_data_html(season_id, highlighted_player=highlighted_player, is_admin=is_admin)
+
+    except ValueError as e:
+        return team_data_service.user_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+    
+@player_controller.route("/delete_player_fine", methods=["POST"])
+def delete_player_fine():
+    # try:
+        season_id = request.form.get("season_id",None)
+        is_admin = request.form.get("is_admin", False)
+        player_id = request.form["player_id"]
+        player_fine_id = request.form["player_fine_id"]
+
+        fine_service.delete_player_fine(player_fine_id)
+
+        player = player_service.get_player_from_id(player_id)
+        highlighted_player = finance_service.update_player_deposit_by_season(player, season_id)
+        highlighted_player = fine_service.update_player_fines_by_season(player, season_id)
+        highlighted_player.balance = highlighted_player.total_deposit - highlighted_player.total_fines
+        return team_data_service.user_team_data_html(season_id, highlighted_player=highlighted_player, is_admin=is_admin)
+
+    # except ValueError as e:
+    #     return team_data_service.user_team_data_html(season_id, error=e)
+    # except Exception as e:
+    #     return render_template('index.html', error=e)

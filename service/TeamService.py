@@ -97,17 +97,19 @@ class TeamService:
         
         if not suggested_player_list:
             raise ValueError("No suggested players found, (they are found by players who had played on season matches)")
-        return suggested_player_list               
-
-    def get_suggested_matches(self, season_id):
-        season = self.season_service.find_season_by_id(season_id)
-
-        matches = self.match_service.get_matches_by_season(season.id)
-        suggested_matches_list = self.season_service.get_suggested_season_matches(season.season_url)
-
-        return True        
+        return suggested_player_list                     
 
     def get_team_by_season_id(self, season_id):
         season = self.season_service.find_season_by_id(season_id)
         return self.get_team_by_id(season.team_id)
+    
+    def edit_team(self, team_id, password, club_name, introduction_text):
+
+        team = self.get_team_by_id(team_id)
+        team.password = password
+        team.club_name = club_name
+        team.introduction_text = introduction_text
+
+        return self.team_DB.edit_team(team)
+        
         

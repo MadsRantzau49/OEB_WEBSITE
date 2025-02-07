@@ -1,119 +1,252 @@
+/* General Styles */
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #e9ecef; /* Light gray background for contrast */
+    background-color: #e9ecef;
+    font-size: 14px; /* Smaller text */
 }
+
 .container {
-    width: 80%;
-    margin: 20px auto;
+    width: 95%;
+    max-width: 1200px;
+    margin: 10px auto;
     background: white;
-    padding: 20px;
+    padding: 15px; /* Reduce padding */
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s;
 }
+
 .container:hover {
-    transform: translateY(-5px); /* Subtle hover effect */
+    transform: translateY(-3px);
 }
+
 h1 {
     text-align: center;
     color: #333;
-    font-size: 2.5rem;
-    margin-bottom: 20px;
+    font-size: 1.8rem; /* Smaller */
+    margin-bottom: 15px;
 }
+
 h2 {
-    color: #007bff; /* Bootstrap primary color */
-    font-size: 1.5rem;
-    margin-bottom: 10px;
+    color: #007bff;
+    font-size: 1.3rem; /* Smaller */
+    margin-bottom: 8px;
 }
+
+/* Sections */
 .divider-container {
     display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     justify-content: space-between;
-    margin: 20px 0;
+    margin: 15px 0;
 }
+
 .divider {
     flex: 1;
-    margin: 0 10px;
-    padding: 20px;
-    background: #f8f9fa; /* Light background for dividers */
+    min-width: 260px;
+    padding: 15px; /* Smaller */
+    background: #f8f9fa;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 50px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
 }
+
+/* Tables */
 table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 12px; /* Smaller text */
+    overflow-x: auto;
 }
+
 th, td {
-    padding: 12px;
-    border: 1px solid #dee2e6; /* Light border */
+    padding: 6px; /* Reduce padding */
+    border: 1px solid #dee2e6;
     text-align: left;
+    white-space: normal; /* Allow wrapping */
+    word-break: break-word; /* Break long words */
 }
+
 th {
-    background-color: #007bff; /* Primary color for header */
-    color: white; /* White text for header */
+    background-color: #007bff;
+    color: white;
 }
+
 tr:nth-child(even) {
-    background-color: #f2f2f2; /* Zebra striping for table rows */
+    background-color: #f2f2f2;
 }
+
 tr:hover {
-    background-color: #d6e9f9; /* Light blue on row hover */
+    background-color: #d6e9f9;
 }
+
+/* Forms */
 form {
-    margin: 20px 0;
+    margin: 15px 0;
     display: flex;
     flex-direction: column;
+    gap: 8px;
 }
-input[type="text"], input[type="submit"] {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ced4da; /* Lighter border for inputs */
-    border-radius: 5px;
+
+input[type="text"],
+input[type="submit"],
+select,
+textarea {
+    padding: 6px; /* Reduce padding */
+    border: 1px solid #ced4da;
+    border-radius: 4px;
     transition: border-color 0.3s;
+    font-size: 12px; /* Smaller */
+    width: 100%;
 }
-input[type="text"]:focus {
-    border-color: #007bff; /* Focus border color */
-    outline: none; /* Remove default outline */
+
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
+    border-color: #007bff;
+    outline: none;
 }
-input[type="submit"] {
-    background-color: #007bff; /* Primary button color */
-    color: white; /* White text for button */
+
+/* Buttons */
+input[type="submit"],
+button {
+    background-color: #007bff;
+    color: white;
     cursor: pointer;
+    font-size: 12px; /* Smaller */
+    padding: 6px 10px; /* Compact */
+    border-radius: 4px;
+    white-space: nowrap; /* Prevent breaking */
+    min-width: 80px; /* Ensure they stay readable */
 }
-input[type="submit"]:hover {
-    background-color: #0056b3; /* Darker blue on hover */
+
+input[type="submit"]:hover,
+button:hover {
+    background-color: #0056b3;
 }
+
+/* Forms Container */
 .forms-container {
     display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     justify-content: space-between;
 }
+
 .form-section {
-    width: 48%; /* Adjust width as necessary */
+    flex: 1;
+    min-width: 260px;
 }
+
+/* Match List */
 .match-list {
     display: flex;
     flex-direction: column;
+    gap: 8px;
 }
+
 .match-list li {
-    padding: 10px;
-    background: #d6e9f9; /* Light blue for matches */
+    padding: 8px;
+    background: #d6e9f9;
     border-radius: 5px;
-    margin: 5px 0;
     transition: background-color 0.3s;
+    font-size: 12px;
 }
+
 .match-list li:hover {
-    background: #cce5ff; /* Darker blue on match hover */
+    background: #cce5ff;
 }
 
-.overpaid{
+/* Payment Status Colors */
+.overpaid {
     color: green;
-}   
+}
 
-.perfectpaid{
+.perfectpaid {
     color: black;
 }
 
-.underpaid{
+.underpaid {
     color: red;
+}
+
+/* TEXTAREA Mobile Fix */
+textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    font-size: 12px; /* Smaller text */
+}
+
+/* RESPONSIVE DESIGN */
+@media screen and (max-width: 768px) {
+    body {
+        font-size: 12px;
+    }
+
+    .container {
+        width: 98%;
+        padding: 10px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.2rem;
+    }
+
+    .divider {
+        padding: 10px;
+    }
+
+    table {
+        font-size: 11px;
+    }
+
+    th, td {
+        padding: 4px;
+    }
+
+    input[type="submit"],
+    button {
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+
+    input, select, textarea {
+        font-size: 11px;
+        padding: 5px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    h1 {
+        font-size: 1.3rem;
+    }
+
+    h2 {
+        font-size: 1.1rem;
+    }
+
+    .divider {
+        padding: 8px;
+    }
+
+    input[type="submit"] {
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+
+    form {
+        flex-direction: column;
+    }
+
+    textarea {
+        min-height: 60px; /* Even smaller for mobile */
+    }
 }

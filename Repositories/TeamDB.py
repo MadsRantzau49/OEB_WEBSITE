@@ -33,3 +33,9 @@ class TeamDB:
     def get_all_teams(self) -> list:
         teams = self.db_session.query(Team).all()
         return teams
+
+    @session_handler
+    def edit_team(self, team):
+        self.db_session.merge(team)
+        self.db_session.commit()
+        return team

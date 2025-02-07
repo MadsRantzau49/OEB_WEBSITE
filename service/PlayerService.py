@@ -14,7 +14,7 @@ class PlayerService:
         if dbu_name_exist or mobilepay_name_exist:
             raise ValueError("Player already added.")
         
-        player = Player(dbu_name=dbu_name, mobilepay_name=mobilepay_name, total_fines=0, deposit=0, team_id=team_id)
+        player = Player(dbu_name=dbu_name, mobilepay_name=mobilepay_name, team_id=team_id)
 
         player_id = self.playerDB.add_player(player)
 

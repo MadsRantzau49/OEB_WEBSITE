@@ -83,5 +83,3 @@ def give_player_fine():
         return team_data_service.user_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
-
-

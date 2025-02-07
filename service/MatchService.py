@@ -63,6 +63,7 @@ class MatchService:
 
             match.home_scored = self.get_home_team_scored_goals(soup)
             match.away_scored = self.get_away_team_scored_goals(soup)
+            # print(f"\n\n\n\n{match.home_scored}\n{match.away_scored}\n\n\n\n")
             # Update in case get lineup crashes.
             self.update_match(match)
 
@@ -118,15 +119,23 @@ class MatchService:
         return soup.find("div", {"class": "sr--match--live-score--result--away"}).find("div", {"class": "teamname"}).text.strip().upper()
 
     def get_home_team_scored_goals(self, soup):
-        return soup.find("div", {"class": "sr-match-score"}).find("div", {"class": "home"}).text.strip()
-    
+        try:
+            goals = soup.find("div", {"class": "sr-match-score"}).find("div", {"class": "home"}).text.strip()
+            return int(goals) if goals.isdigit() else None
+        except:
+            return None
+
     def get_away_team_scored_goals(self, soup):
-        return soup.find("div", {"class": "sr-match-score"}).find("div", {"class": "away"}).text.strip()
+        try:
+            goals = soup.find("div", {"class": "sr-match-score"}).find("div", {"class": "away"}).text.strip()
+            return int(goals) if goals.isdigit() else None
+        except:
+            return None
 
     def is_match_played_on_home_stadion(self, home_club, away_club, club_name):
-        if home_club == club_name:
+        if club_name in home_club:
             return True
-        elif away_club == club_name:
+        elif club_name in away_club:
             return False
         raise Exception("Club name not found in match, ensure the club name is equal to DBU database.")
 

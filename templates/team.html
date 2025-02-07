@@ -18,6 +18,109 @@
 
     <div class="container">
         <h1>Team Name: {{ team_data.team.team_name }}</h1>
+        
+        {% if highlighted_player %}
+            <div class="divider">
+                <h1>{{highlighted_player.dbu_name}}</h1>
+
+                <h3>Betalt til mobilepayboxen: {{highlighted_player.total_deposit}}</h3>
+                <h3>Bøder i alt: {{highlighted_player.total_fines}}</h3>
+                <h3 class="{% if highlighted_player.balance > 0 %}overpaid{% elif highlighted_player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
+                    Total: {{highlighted_player.balance}}
+                </h3>
+
+                <h2>Bøder:</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Navn</th>
+                            <th>Beskrivelse</th>
+                            <th>Beløb</th>
+                            <th>Date</th>
+                            {% if is_admin %}
+                                <th>Slet bøde</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fine in highlighted_player.fine_list %}
+                            <tr>
+                                <td>{{ fine.name }}</td>
+                                <td>{{ fine.description }}</td>
+                                <td>{{ fine.amount }}</td>
+                                <td>{{ fine.date}}</td>
+                        
+                                {% if is_admin %}
+                                    <td>
+                                        <form action="/delete_player_fine" method="POST" style="display:inline;">
+                                            <input type="hidden" name="player_fine_id" value={{fine.player_fine_id}}>
+                                            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                            <input type="hidden" name="player_id" value="{{ highlighted_player.id }}">
+                                            <input type="hidden" name="is_admin" value="{{ is_admin }}">
+                                            <input type="submit" value="Delete Fine">
+                                        </form>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4">Du har ingen bøder endnu, tillykke</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+    
+                </table>
+            
+                <h2>Betalinger:</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Navn</th>
+                            <th>Besked</th>
+                            <th>Beløb</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in highlighted_player.deposit_list %}
+                            <tr>
+                                <td>{{ row.name }}</td>
+                                <td>{{ row.message }}</td>
+                                <td>{{ row.amount }}</td>
+                                <td>{{ row.date}}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4">Du har ikke indbetalt nogen penge endnu. Hvis du mener, at du har, så kontakt bødekasseformanden.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+    
+                </table>
+
+            </div>    
+        {% endif %}
+
+        <!-- ADMIN -->        
+        {% if is_admin %}
+            <div class="divider">
+                <h2>Admin features</h2>
+
+                <form action="/render/edit_team" method="POST" style="display:inline;">
+                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                    <input type="hidden" name="team_name" value="{{ team_data.team.team_name }}">
+                    <input type="hidden" name="password" value="{{ team_data.team.password }}">
+                    <input type="submit" value="Edit team">
+                </form>
+                <br><br>
+                <form action="/add_mobilepay_transactions" method="POST" style="display:inline;" enctype="multipart/form-data">
+                    <input type="file" name="mobilepay_transaction_file" accept=".xlsx" required>
+                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                    <input type="submit" value="Add New Fine">
+                </form>
+                
+            </div>
+        {% endif %}
 
         <!-- Players -->        
         <div class="divider">
@@ -30,7 +133,6 @@
                         <th>Bøder</th>
                         <th>Betalt</th>
                         <th>Balance</th>
-                        <th>Se bøder</th>
                         {% if is_admin %}
                             <th>Opret bøde</th>
                         {% endif %}
@@ -39,9 +141,18 @@
                 <tbody>
                     {% for player in team_data.players %}
                         <tr>
-                            <td>{{ player.dbu_name }}</td>
+                            <td>
+                                <form action="/see_player_status" method="POST" style="display:inline;">
+                                    <input type="hidden" name="player_id" value="{{ player.id }}">
+                                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                    {% if is_admin %}
+                                        <input type="hidden" name="is_admin" value="{{ is_admin }}">
+                                    {% endif %}
+                                    <input type="submit" value="{{player.dbu_name}}">
+                                </form>
+                            </td>
                             <td>{{ player.total_fines }}</td>
-                            <td>{{ player.deposit }}</td>
+                            <td>{{ player.total_deposit }}</td>
                             <td id="player_balance" 
                                 class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
                                 {{ player.balance }}
@@ -49,13 +160,7 @@
                         
                         
                             
-                            <td>
-                                <form action="/see_player" method="POST" style="display:inline;">
-                                    <input type="hidden" name="player_id" value="{{ player.id }}">
-                                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                                    <input type="submit" value="Se Bøder">
-                                </form>
-                            </td>
+                            
                             {% if is_admin %}
                                 <td>
                                     <form action="/give_player_fine" method="POST" style="display:inline;">
@@ -168,6 +273,10 @@
             
                 </tbody>
             </table>
+            <form action="/update_all_season_matches_information/user" method="POST" style="display:inline;">
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                <input type="submit" value="Update all matches">
+            </form>
         </div>
 
 
@@ -199,6 +308,40 @@
             </table>
         </div>
 
+        <div class="divider">
+            <h2>Regler</h2>
+            <textarea readonly>{{ team_data.team.introduction_text }}</textarea>
+        </div>
+
+        <div class="divider">
+            <h2>Udgifter</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Modtager</th>
+                        <th>Bedsked</th>
+                        <th>Beløb</th>
+                        <th>Dato</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expens in team_data.expenses %}
+                        <tr>
+                                <td>{{ expens.name }}</td>
+                                <td>{{ expens.message }}</td>
+                                <td>{{ expens.amount }}</td>
+                                <td>{{ expens.date }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4">Dette hold har ingen udgifter</td>
+                        </tr>
+                    {% endfor %}
+                                            
+                </tbody>
+            </table>
+        </div>
+
         <!-- Season -->
         <div class="divider">
             <!-- CHANGE SEASON -->
@@ -214,6 +357,9 @@
                             <option>Ingen sæsoner tilgængelige</option>
                         {% endfor %}
                     </select>
+                    {% if is_admin %}
+                        <input type="hidden" name="is_admin" value="{{is_admin}}">
+                    {% endif %}
                     <!-- Hidden submit button to support automatic form submission -->
                     <noscript><input type="submit" value="Submit"></noscript>
                 </form>

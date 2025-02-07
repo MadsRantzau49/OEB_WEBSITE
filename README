@@ -1,41 +1,15 @@
 Mangler før production:
 
-(ADMIN) knap til at opdatere alt data.
--Opdater kampe
--Opdater Finance (excel)
--Opdater vaskealgoritme
--Opdater total bøder pr spiller
-
-(ADMIN) knap til at gå til edit_team
-
-spillerdata:
--penge overført i alt
--bøder i alt
--balance
--Knap til at gå tilbage til teams
--Navn (overskrift)
--Data fra DB
--Liste med alle bøder de har fået
--(ADMIN) skal kunne fjerne bøder
+lave det til PWA.
+-Mobile friendly
 
 Liste med vasketøj:
 -(den er lavet)
 --Det skal fungere sådan at top 3 navne skal selv finde ud af hvem der vasker. 
 
 
-Liste med udgifter (penge brugt på øl)
--Dato
--Hvem modtageren er
--Beskrivelse af mobilepayen
--beløb
-
-Regler og beskrivelse af hvordan bødekasse systemet fungere. 
-
-
-
 Vasketøj:
 Automatisk oprettelse af fair vaskeplan.
-
 
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD

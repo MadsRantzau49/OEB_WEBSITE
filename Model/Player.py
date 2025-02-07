@@ -7,6 +7,4 @@ class Player(Base):
     id = Column(Integer, primary_key=True)
     dbu_name = Column(String, nullable=False)
     mobilepay_name = Column(String, nullable=False)
-    total_fines = Column(Integer, nullable=False)
-    deposit = Column(Integer, nullable=False)
-    team_id = Column(Integer, ForeignKey('teams.id'))  # Foreign key to Team
+    team_id = Column(Integer, ForeignKey('teams.id', ondelete="CASCADE"))  # Foreign key to Team

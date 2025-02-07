@@ -58,3 +58,16 @@ def edit_season():
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+
+@season_controller.route("/change_team_user_season", methods=["POST"])
+def change_user_season():
+    try:
+        season_id = request.form['season_id']    
+        is_admin = request.form.get("is_admin", False)
+
+        return team_data_service.user_team_data_html(season_id, is_admin=is_admin)
+
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
