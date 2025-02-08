@@ -12,4 +12,11 @@ system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
 
 supportere HTTPS
-tilføj domæne. 
+tilføj domæne.
+
+nice to have:
+
+sorter baseret på:
+navn, betalt, bøder, balance
+
+ 
