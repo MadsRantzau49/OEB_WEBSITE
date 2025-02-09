@@ -3,6 +3,7 @@ from .TeamService import TeamService
 from .FineService import FineService
 from .FinanceService import FinanceService
 from Repositories.PlayerDB import PlayerDB
+from Repositories.MatchDB import MatchDB
 
 
 class TeamDataService:
@@ -11,6 +12,7 @@ class TeamDataService:
          self.fine_service = FineService()
          self.finance_service = FinanceService()
          self.player_DB = PlayerDB()
+         self.match_DB = MatchDB()
 
     def edit_team_data_html(self, season_id, *args, **kwargs):
         try:
@@ -31,6 +33,7 @@ class TeamDataService:
                 # Get all fines and add .total_fines and .fine_list
                 player = self.fine_service.update_player_fines_by_season(player, season_id)
                 player.balance = player.total_deposit - player.total_fines
+                player.number_of_clothes_washes = self.match_DB.find_amount_of_player_clothes_washes_by_season(player.id, season_id)
             
             for match in user_team_data.matches:
                 match.fine_amount = self.fine_service.calculate_match_total_fine(match.id, user_team_data.team.id)

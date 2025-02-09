@@ -135,6 +135,7 @@
                         <th>Bøder</th>
                         <th>Betalt</th>
                         <th>Balance</th>
+                        <th>Vasket</th>
                         {% if is_admin %}
                             <th>Opret bøde</th>
                         {% endif %}
@@ -159,6 +160,7 @@
                                 class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
                                 {{ player.balance }}
                             </td>
+                            <td>{{player.number_of_clothes_washes}}</td>
                         
                         
                             

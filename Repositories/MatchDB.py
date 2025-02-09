@@ -46,3 +46,10 @@ class MatchDB:
         self.db_session.merge(match)
         self.db_session.commit()
         return match
+
+    @session_handler
+    def find_amount_of_player_clothes_washes_by_season(self, player_id, season_id):
+        return self.db_session.query(Match).filter(
+            Match.clothes_washer == player_id,
+            Match.season_id == season_id
+        ).count()
