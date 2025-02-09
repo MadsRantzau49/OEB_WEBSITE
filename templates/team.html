@@ -29,14 +29,7 @@
                 <h3>Bøder i alt: {{highlighted_player.total_fines}}</h3>
                 <h3 class="{% if highlighted_player.balance > 0 %}overpaid{% elif highlighted_player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
                     Total: {{highlighted_player.balance}}
-                </h3>
-                <a href="mobilepay://send?phone=30269851&amount=50&comment=Thanks%20for%20your%20support!" style="display: inline-block; padding: 10px 20px; background-color: #0070ba; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
-                    Pay with MobilePay
-                </a>
-                <a href="mobilepay://" style="display: inline-block; padding: 10px 20px; background-color: #0070ba; color: white; text-decoration: none; border-radius: 5px; font-size: 16px;">
-                    MobilePay
-                </a>
-                                
+                </h3>     
 
                 <h2>Bøder:</h2>
                 <table>
