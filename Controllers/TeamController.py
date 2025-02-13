@@ -45,7 +45,7 @@ def render_edit_team():
     except Exception as e:
         return render_template('index.html', error=e)
     
-@team_controller.route("/login/as_min", methods=["POST"])
+@team_controller.route("/login/as_admin", methods=["POST"])
 def login_as_admin():
     try:
         season_id = request.form.get("season_id", None)
@@ -57,7 +57,7 @@ def login_as_admin():
         if not season_id:
             season_id = season_service.find_latest_season_by_team_id(team.id).id
 
-        return team_data_service.user_team_data_html(season_id)
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except Exception as e:
         return render_template('index.html', error=e)

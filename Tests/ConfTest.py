@@ -1,12 +1,15 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import sys
 import os
+from app import app
+import pytest
+from Database.database_setup import initialize_database
 
 # Add the root directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app import app
-import pytest
-from Database.database_setup import initialize_database
 
 @pytest.fixture(scope='module')
 def test_client():

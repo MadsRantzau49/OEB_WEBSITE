@@ -20,10 +20,6 @@ app.register_blueprint(finance_controller)
 def home():
     return render_template('index.html')
 
-if __name__ == '__main__':
-    initialize_database()
-    app.run(host='0.0.0.0', port=8080, debug=True)
-
 
 
 
@@ -78,4 +74,8 @@ def manifest_admin():
 @app.route('/admin_index')
 def admin():
     return render_template('admin_index.html')
+
+if __name__ == '__main__':
+    initialize_database()
+    app.run(host='0.0.0.0', port=8080, debug=True)
 
