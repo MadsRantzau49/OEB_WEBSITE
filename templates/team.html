@@ -120,11 +120,12 @@
                 {% for match in team_data.matches %}
                     <tr>
                         {% if match.match_url_id %}
-                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
+                            <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
                         {% else %}
-                            <td>Manuel kamp</td>
+                            <td>IKKE DBU</td>
                         {% endif %}
-                    {% if match.home_club %}
+
+
                         {% if match.home_club %}
                             <td>{{ match.home_club if match.home_club is not none else '' }}</td>
                             <td>{{ match.away_club if match.away_club is not none else '' }}</td>
@@ -146,7 +147,7 @@
                                         {% for player in team_data.players %}
                                             <option value="{{ player.id }}">{{ player.dbu_name }}</option>
                                         {% else %}
-                                            <option>Ingen spillere fundet</option>
+                                            <!-- Nothing  -->
                                         {% endfor %}
                                     </select>
                                     <input type="hidden" name="match_id" value="{{ match.id }}">
