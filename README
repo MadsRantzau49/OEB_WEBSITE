@@ -6,6 +6,10 @@ skrive tests
 
 lave try, exeptions til alt user_edit_team_data sådan den retunere null men den findes så man altid burde kunne tilgå siden men bare med færre data
 
+man kunne kave en navbar til hurtig tilgang til de forskellige:
+evt få javascript til at lave den dynamisk
+
+
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
 
