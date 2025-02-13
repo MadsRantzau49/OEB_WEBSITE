@@ -28,7 +28,7 @@ def create_match():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 
 @match_controller.route("/remove_match", methods=["POST"])
@@ -44,7 +44,7 @@ def delete_match():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
         
 
 @match_controller.route("/update_all_season_matches_information/admin", methods=["POST"])
@@ -59,7 +59,7 @@ def update_all_season_matches_information():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @match_controller.route("/update_all_season_matches_information/user", methods=["POST"])
 def update_all_season_matches_information_user():
@@ -67,12 +67,12 @@ def update_all_season_matches_information_user():
         season_id = request.form.get("season_id",None)
         
         match_service.update_all_season_matches_information(season_id)
-        return team_data_service.user_team_data_html(season_id)
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except ValueError as e:
-        return team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 
 @match_controller.route("/update_match_information", methods=["POST"])
@@ -86,9 +86,9 @@ def update_match_information():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except ValueError as e:
-        return team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 
 
@@ -104,7 +104,7 @@ def get_suggested_season_matches():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @match_controller.route("/add_suggested_matches", methods=["POST"])
 def add_suggested_matches():
@@ -119,7 +119,7 @@ def add_suggested_matches():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @match_controller.route("/change_clothes_washer", methods=["POST"])
 def change_clothes_washer():
@@ -134,9 +134,9 @@ def change_clothes_washer():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
     
     except ValueError as e:
-        return team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @match_controller.route("/add_match_manually", methods=["POST"])
 def add_match_manually():
@@ -153,7 +153,7 @@ def add_match_manually():
         team_id = team_service.get_team_by_season_id(season_id).id
         fine_service.update_match_fine([], match, team_id)
 
-        return team_data_service.user_team_data_html(season_id, is_admin=True)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)

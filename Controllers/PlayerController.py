@@ -34,7 +34,7 @@ def create_player():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @player_controller.route("/remove_player", methods=["POST"])
 def remove_player():
@@ -49,7 +49,7 @@ def remove_player():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @player_controller.route("/edit_player_name", methods=["POST"])
 def edit_player_name():
@@ -66,7 +66,7 @@ def edit_player_name():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @player_controller.route("/get_suggested_players_list", methods=["POST"])
 def get_suggested_players_list():
@@ -80,7 +80,7 @@ def get_suggested_players_list():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @player_controller.route("/add_suggested_players", methods=["POST"])
 def add_suggested_players():
@@ -98,7 +98,7 @@ def add_suggested_players():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @player_controller.route("/see_player_status", methods=["POST"])
 def see_player_status():
@@ -114,7 +114,7 @@ def see_player_status():
         return team_data_service.user_team_data_html(season_id, highlighted_player=highlighted_player, is_admin=is_admin)
 
     except ValueError as e:
-        return team_data_service.user_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id ,error=e)
     except Exception as e:
         return render_template('index.html', error=e)
     

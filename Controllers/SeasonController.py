@@ -25,7 +25,7 @@ def create_season():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season.id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 
 @season_controller.route("/change_season", methods=["POST"])
@@ -38,7 +38,7 @@ def change_season():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 
 @season_controller.route("/edit_season", methods=["POST"])
@@ -57,7 +57,7 @@ def edit_season():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @season_controller.route("/change_team_user_season", methods=["POST"])
 def change_user_season():
@@ -68,6 +68,6 @@ def change_user_season():
         return team_data_service.user_team_data_html(season_id, is_admin=is_admin)
 
     except ValueError as e:
-        return team_data_service.edit_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)

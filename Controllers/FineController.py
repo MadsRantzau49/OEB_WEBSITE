@@ -27,7 +27,7 @@ def add_fine():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @fine_controller.route("/edit_fine", methods=["POST"])
 def edit_fine():
@@ -46,7 +46,7 @@ def edit_fine():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @fine_controller.route("/remove_fine", methods=["POST"])
 def remove_fine():
@@ -62,7 +62,7 @@ def remove_fine():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @fine_controller.route("/give_player_fine", methods=["POST"])
 def give_player_fine():
@@ -80,6 +80,6 @@ def give_player_fine():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
     
     except ValueError as e:
-        return team_data_service.user_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)

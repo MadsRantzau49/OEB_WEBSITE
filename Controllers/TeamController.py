@@ -26,7 +26,7 @@ def create_team():
         return team_data_service.edit_team_data_html(season_id)
 
     except Exception as e:
-        return render_template("index.html", error=f"Error: {str(e)}")
+        return render_template("admin_index.html", error=f"Error: {str(e)}")
 
 @team_controller.route("/render/edit_team", methods=["POST"])
 def render_edit_team():
@@ -43,7 +43,7 @@ def render_edit_team():
         return team_data_service.edit_team_data_html(season_id)
 
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
     
 @team_controller.route("/login/as_admin", methods=["POST"])
 def login_as_admin():
@@ -60,7 +60,7 @@ def login_as_admin():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @team_controller.route("/edit_team", methods=["POST"])
 def edit_team():
@@ -78,7 +78,7 @@ def edit_team():
         return team_data_service.edit_team_data_html(season_id)
 
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @team_controller.route("/see_team_as_admin", methods=["POST"])
 def see_team_as_admin():
@@ -88,7 +88,7 @@ def see_team_as_admin():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
 
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
 
 @team_controller.route("/see_team_as_user", methods=["POST"])
 def see_team_as_user():

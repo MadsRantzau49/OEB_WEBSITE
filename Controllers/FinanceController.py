@@ -20,6 +20,6 @@ def add_file():
         return team_data_service.user_team_data_html(season_id, is_admin=True)
     
     except ValueError as e:
-        return team_data_service.user_team_data_html(season_id, error=e)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)
