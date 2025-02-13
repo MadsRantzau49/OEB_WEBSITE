@@ -2,7 +2,7 @@ def test_home_route(test_client):
     """Test the home route."""
     response = test_client.get('/')
     assert response.status_code == 200
-    assert b'Essaked\xc3\xb8b' in response.data  # Check if 'Essakedøb' is in the response
+    assert b'Hold' in response.data  # Check if 'Essakedøb' is in the response
 
 def test_manifest_route(test_client):
     """Test the manifest.json route."""

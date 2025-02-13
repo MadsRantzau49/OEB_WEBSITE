@@ -17,7 +17,7 @@ def test_client():
     flask_app.config['DEBUG'] = False
     
     # Initialize the test database
-    initialize_database("test.db")
+    initialize_database()
     
     testing_client = flask_app.test_client()
     
