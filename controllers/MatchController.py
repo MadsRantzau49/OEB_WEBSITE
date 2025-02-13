@@ -121,3 +121,22 @@ def change_clothes_washer():
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
         return render_template('index.html', error=e)
+
+@match_controller.route("/add_match_manually", methods=["POST"])
+def add_match_manually():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        home_team = request.form["home_team"]
+        away_team = request.form["away_team"]
+        home_goals = request.form["home_team_scored"]
+        away_goals = request.form["away_team_scored"]
+
+        match = match_service.creat_match_manually(season_id, home_team, away_team, home_goals, away_goals)
+
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
+
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)

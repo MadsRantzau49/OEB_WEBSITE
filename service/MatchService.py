@@ -26,10 +26,13 @@ class MatchService:
         match = Match(match_url_id=match_url_id, season_id=season_id, home_scored=None, away_scored=None)
 
         # Add the team to the database
-        match_id = self.match_db.add_match(match)
-
-        return match    
+        return self.match_db.add_match(match)
     
+    def creat_match_manually(self, season_id, home_team, away_team, home_team_scored, away_team_scored):
+        match = Match(match_url_id=None, season_id=season_id, home_club=home_team, away_club=away_team, home_scored=home_team_scored, away_scored=away_team_scored)
+
+        return self.match_db.add_match(match)
+
     def match_already_exist(self, match_url_id, season_id):
         return self.match_db.match_already_exist(match_url_id, season_id)
 
