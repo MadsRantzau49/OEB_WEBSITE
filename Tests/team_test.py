@@ -6,6 +6,18 @@ def test_create_team(test_client):
         "password": "securepass"
     })
     assert response.status_code == 200
+    assert b'Error' not in response.data
+
+def test_create_team_twice(test_client):
+    """Test the /create_team route."""
+    response = test_client.post("/create_team", data={
+        "team_name": "TestTeam",
+        "club_name": "TestClub",
+        "password": "securepass"
+    })
+    assert response.status_code == 200
+    assert b'Error' in response.data
+
 
 def test_render_edit_team(test_client):
     """Test the /render/edit_team route."""
