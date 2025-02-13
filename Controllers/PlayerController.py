@@ -27,9 +27,7 @@ def create_player():
         
         player = player_service.create_player(dbu_name, mobilepay_name, team_id)
 
-        suggested_player_list = team_service.get_suggested_players(season_id)
-
-        return team_data_service.edit_team_data_html(season_id, suggested_player_list=suggested_player_list)
+        return team_data_service.edit_team_data_html(season_id)
 
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)

@@ -22,8 +22,7 @@ def create_match():
         season_id = request.form.get("season_id",None)
         
         match = match_service.create_match(match_url, season_id)
-        suggested_matches = season_service.get_suggested_season_matches(season_id)
-        return team_data_service.edit_team_data_html(season_id, suggested_matches=suggested_matches)
+        return team_data_service.edit_team_data_html(season_id)
     
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
