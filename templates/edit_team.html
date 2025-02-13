@@ -47,7 +47,7 @@
                         <td>
                             <select name="fine_dropdown">
                                 {% for type in team_data.type_list %}
-                                    {% if type != team_data.FineType.CUSTOM_FINE and type != team_data.FineType.MATCH_FINE %}  
+                                    {% if type != team_data.FineType.CUSTOM_FINE %}  
                                         <option value="{{ type.value }}" {% if type == team_data.FineType.TEAM_FINE %}selected{% endif %}>
                                             {{ type.value }}
                                         </option>
@@ -182,64 +182,86 @@
                     </tr>
                 </thead>
                 <tbody>
-                <form action="/add_match" method="POST">
-                    <td><input type="text" name="match_url" placeholder="Match URL" required></td>
-                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                    <td colspan="4"><input type="submit" value="Add New Match"></td>
-                </form>
-                {% for match in team_data.matches %}
                     <tr>
-                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
-                        {% if match.home_club %}
-                        <td>{{ match.home_club if match.home_club is not none else '' }}</td>
-                        <td>{{ match.away_club if match.away_club is not none else '' }}</td>
-                        <td>
-                            {{ match.home_scored if match.home_scored is not none else '' }} - 
-                            {{ match.away_scored if match.away_scored is not none else '' }}
-                        </td>
-                        {% else %}
-                        <td colspan="3">Match data not found, try update</td>
-                        {% endif %}
-                        <td><form action="/remove_match" method="POST" style="display:inline;">
-                            <input type="hidden" name="match_id" value="{{ match.id }}">
+                        <form action="/add_match" method="POST">
+                            <td><input type="text" name="match_url" placeholder="Match URL" required></td>
                             <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                            <input type="submit" value="Remove">
-                        </form></td>
+                            <td colspan="4"><input type="submit" value="Add New Match"></td>
+                        </form>
                     </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5">No matches found.</td>
-                </tr>
-                {% endfor %}
-                {% if suggested_matches is defined and suggested_matches %}
                     <tr>
-                        <td colspan="5">Suggested matches is listed below</td>
+                        <form action="/add_match_manually" method="POST">
+                            <td></td>
+                            <td><input type="text" name="home_team" placeholder="Home Team" required></td>
+                            <td><input type="text" name="away_team" placeholder="Away Team" required></td>
+                            <td>
+                                <label for="home_team_scored">Home goals:</label>
+                                <input type="number" name="home_team_scored">
+                                <br>
+                                <label for="away_team_scored">Away goals:</label>
+                                <input type="number" name="away_team_scored">
+                            </td>
+                            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                            <td><input type="submit" value="Add Manual Match"></td>
+                        </form>
                     </tr>
-                    <form action="/add_suggested_matches" method="POST">
-                    <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-
-                    {% for match in suggested_matches %}
-                            <tr>
+                    {% for match in team_data.matches %}
+                        <tr>
+                            {% if match.match_url_id %}
                                 <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
-                                <td> {{match.home_club }}</td>
-                                <td> {{match.away_club }}</td>
-                                <td> </td>
-                                <td><input type="checkbox" name="match_url" value="{{ match.match_url_id }}"></td>
+                            {% else %}
+                                <td>NOT DBU MATCH</td>
+                            {% endif %}
+                            {% if match.home_club %}
+                            <td>{{ match.home_club if match.home_club is not none else '' }}</td>
+                            <td>{{ match.away_club if match.away_club is not none else '' }}</td>
+                            <td>
+                                {{ match.home_scored if match.home_scored is not none else '' }} - 
+                                {{ match.away_scored if match.away_scored is not none else '' }}
+                            </td>
+                            {% else %}
+                            <td colspan="3">Match data not found, try update</td>
+                            {% endif %}
+                            <td><form action="/remove_match" method="POST" style="display:inline;">
+                                <input type="hidden" name="match_id" value="{{ match.id }}">
+                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+                                <input type="submit" value="Remove">
+                            </form></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">No matches found.</td>
+                        </tr>
+                        {% endfor %}
+                        {% if suggested_matches is defined and suggested_matches %}
+                            <tr>
+                                <td colspan="5">Suggested matches is listed below</td>
                             </tr>
-                    {% else %}
-                    <!-- nothing -->
-                    {% endfor %}
-                    <tr>
-                        <td colspan="5"><input type="submit" value="Add selected suggested matches"></td>
-                    </form>
-                    
-                    </tr>
-                    
-                {% endif %}
+                            <form action="/add_suggested_matches" method="POST">
+                            <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+
+                            {% for match in suggested_matches %}
+                                    <tr>
+                                        <td><a href="https://www.dbu.dk/resultater/kamp/{{ match.match_url_id }}/kampinfo" target="_blank">{{ match.match_url_id }}</a></td>
+                                        <td> {{match.home_club }}</td>
+                                        <td> {{match.away_club }}</td>
+                                        <td> </td>
+                                        <td><input type="checkbox" name="match_url" value="{{ match.match_url_id }}"></td>
+                                    </tr>
+                            {% else %}
+                            <!-- nothing -->
+                            {% endfor %}
+                            <tr>
+                                <td colspan="5"><input type="submit" value="Add selected suggested matches"></td>
+                            </form>
+                            
+                            </tr>
+                            
+                    {% endif %}
 
                 </tbody>
             </table>
-            <form action="/update_all_season_matches_information" method="POST" style="display:inline;">
+            <form action="/update_all_season_matches_information/admin" method="POST" style="display:inline;">
                 <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
                 <input type="submit" value="Update matches">
             </form>

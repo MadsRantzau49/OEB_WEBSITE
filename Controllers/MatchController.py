@@ -4,12 +4,14 @@ from Repositories.TeamDB import TeamDB
 from Service.TeamService import TeamService
 from Service.SeasonService import SeasonService
 from Service.TeamDataService import TeamDataService
+from Service.FineService import FineService
 # Initialize the service
 match_service = MatchService()
 team_DB = TeamDB()
 team_service = TeamService()
 season_service = SeasonService()
 team_data_service = TeamDataService()
+fine_service = FineService()
 # Define the Blueprint
 match_controller = Blueprint('match_controller', __name__)
 
@@ -45,7 +47,7 @@ def delete_match():
         return render_template('index.html', error=e)
         
 
-@match_controller.route("/update_all_season_matches_information", methods=["POST"])
+@match_controller.route("/update_all_season_matches_information/admin", methods=["POST"])
 def update_all_season_matches_information():
     try:
         season_id = request.form.get("season_id",None)
@@ -131,6 +133,28 @@ def change_clothes_washer():
 
         return team_data_service.user_team_data_html(season_id, is_admin=True)
     
+    except ValueError as e:
+        return team_data_service.edit_team_data_html(season_id, error=e)
+    except Exception as e:
+        return render_template('index.html', error=e)
+
+@match_controller.route("/add_match_manually", methods=["POST"])
+def add_match_manually():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        home_team = request.form["home_team"]
+        away_team = request.form["away_team"]
+        home_goals = request.form["home_team_scored"]
+        away_goals = request.form["away_team_scored"]
+
+        match = match_service.creat_match_manually(season_id, home_team, away_team, home_goals, away_goals)
+
+        team_id = team_service.get_team_by_season_id(season_id).id
+        fine_service.update_match_fine([], match, team_id)
+
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
+
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
