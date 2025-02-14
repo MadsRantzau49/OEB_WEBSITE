@@ -10,8 +10,13 @@ man kunne kave en navbar til hurtig tilgang til de forskellige:
 evt få javascript til at lave den dynamisk
 
 
+
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
 
 supportere HTTPS
 tilføj domæne.
+
+
+bugs:
+matches antal td er forkeet på admin hvis kampen ikke er opdateret
