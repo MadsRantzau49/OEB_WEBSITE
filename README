@@ -1,4 +1,4 @@
-Mangler før production:
+8Mangler før production:
 
 opret træningskampe
 
@@ -28,3 +28,5 @@ matches antal td er forkeet på admin hvis kampen ikke er opdateret. og ikke adm
 see suggested players virker ikke
 
 man kan ikke oprette en match manuelt/der kommer ihvertfakd en exeption. og man bliver redirected til index og ikke admin_index
+
+importer js table på admin siden
