@@ -66,8 +66,8 @@
     .dynamic-nav ul {
         display: none;
         flex-direction: column;
-        position: static;
-        top: 100px; /* Adjusted to prevent overlap */
+        position: relative;
+        top: 50px; /* Adjusted to prevent overlap */
         left: 0;
         width: 100%;
         background: #222;
