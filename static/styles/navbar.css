@@ -1,89 +1,76 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
 .dynamic-nav {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background: #222; /* Darker background for better contrast */
+    background: transparent;
     color: white;
-    padding: 10px 0;
-    text-align: center;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     z-index: 1000;
 }
 
-.dynamic-nav .menu-toggle {
-    display: none;
-    cursor: pointer;
+.menu-toggle {
     font-size: 24px;
+    cursor: pointer;
+    display: none;
     color: white;
-    background: rgba(255, 255, 255, 0.2); /* Semi-transparent background */
-    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px;
     border-radius: 5px;
-    position: absolute;
-    left: 15px;
-    top: 10px;
 }
 
 .dynamic-nav ul {
     list-style: none;
-    padding: 0;
-    margin: 0;
     display: flex;
-    justify-content: center;
-    gap: 15px;
+    margin: 0;
+    padding: 0;
 }
 
-.dynamic-nav li {
-    display: inline;
+.dynamic-nav ul li {
+    margin: 0 15px;
 }
 
-.dynamic-nav a {
+.dynamic-nav ul li a {
     color: white;
     text-decoration: none;
-    padding: 5px 10px;
-    transition: background 0.3s;
+    font-size: 18px;
+    transition: color 0.3s;
 }
 
-.dynamic-nav a:hover {
-    background: #555;
-    border-radius: 5px;
+.dynamic-nav ul li a:hover {
+    color: #00bcd4;
 }
 
-/* Mobile Styles */
-@media (max-width: 768px) {
-    .dynamic-nav{
-        background: transparent;
-    }
-
-    .dynamic-nav .menu-toggle {
+@media screen and (max-width: 768px) {
+    .menu-toggle {
         display: block;
-        color: black; /* More contrast */
-        background: white; /* Stand out on light backgrounds */
-        padding: 8px 12px;
-        font-weight: bold;
     }
 
     .dynamic-nav ul {
-        display: none;
-        flex-direction: column;
         position: absolute;
-        top: 0; /* Adjusted to prevent overlap */
+        top: 50px;
         left: 0;
         width: 100%;
-        background: #222;
-        text-align: center;
-        padding: 10px 0;
+        background: linear-gradient(to bottom, rgb(20, 20, 20), rgb(180, 180, 180));
+        flex-direction: column;
+        display: none;
+        text-align: left;
     }
 
     .dynamic-nav ul.show {
         display: flex;
     }
 
-    .dynamic-nav li {
-        display: block;
-        padding: 10px 20px;
+    .dynamic-nav ul li {
+        padding: 15px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
-    
 }
-
-
