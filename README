@@ -2,9 +2,6 @@ Mangler før production:
 
 lave try, exeptions til alt user_edit_team_data sådan den retunere null men den findes så man altid burde kunne tilgå siden men bare med færre data
 
-man kunne kave en navbar til hurtig tilgang til de forskellige:
-evt få javascript til at lave den dynamisk
-
 fix hvis man reloader så uploader man formen igen
 
 skriv nogle tests templates sådan man hurtigt kan kombinere integrationstests

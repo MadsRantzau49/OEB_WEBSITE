@@ -51,6 +51,10 @@
 
 /* Mobile Styles */
 @media (max-width: 768px) {
+    .dynamic-nav{
+        background: transparent;
+    }
+
     .dynamic-nav .menu-toggle {
         display: block;
         color: black; /* More contrast */
@@ -62,7 +66,7 @@
     .dynamic-nav ul {
         display: none;
         flex-direction: column;
-        position: absolute;
+        position: static;
         top: 50px; /* Adjusted to prevent overlap */
         left: 0;
         width: 100%;
@@ -79,9 +83,7 @@
         display: block;
         padding: 10px 20px;
     }
+    
 }
 
-/* Prevent content from hiding under navbar */
-.container {
-    margin-top: 60px;
-}
+
