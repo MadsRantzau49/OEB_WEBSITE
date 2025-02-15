@@ -8,7 +8,7 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    background: transparent;
+    background: linear-gradient(to right, rgb(20, 20, 20), rgb(180, 180, 180));
     color: white;
     padding: 10px 20px;
     display: flex;
@@ -52,6 +52,10 @@ body {
 @media screen and (max-width: 768px) {
     .menu-toggle {
         display: block;
+    }
+
+    .dynamic-nav {
+        background: transparent;
     }
 
     .dynamic-nav ul {
