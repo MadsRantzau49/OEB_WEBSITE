@@ -96,7 +96,7 @@ class TeamService:
                     suggested_player_list.append(player)
         
         if not suggested_player_list:
-            raise ValueError("No suggested players found, (they are found by players who had played on season matches)")
+            raise ValueError("No suggested players found, (they are found by players who had played on season matches and the club name)")
         return suggested_player_list                     
 
     def get_team_by_season_id(self, season_id):

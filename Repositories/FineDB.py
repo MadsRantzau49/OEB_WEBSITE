@@ -23,7 +23,8 @@ class FineDB:
     def get_team_fines_without_custom_type(self, team_id):
         return self.db_session.query(Fine).filter(
             Fine.team_id == team_id,
-            Fine.fine_type != FineType.CUSTOM_FINE
+            Fine.fine_type != FineType.CUSTOM_FINE,
+            Fine.fine_type != FineType.MATCH_FINE
             ).all()
 
 

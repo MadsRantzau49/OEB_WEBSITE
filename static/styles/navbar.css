@@ -1,0 +1,87 @@
+.dynamic-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #222; /* Darker background for better contrast */
+    color: white;
+    padding: 10px 0;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.dynamic-nav .menu-toggle {
+    display: none;
+    cursor: pointer;
+    font-size: 24px;
+    color: white;
+    background: rgba(255, 255, 255, 0.2); /* Semi-transparent background */
+    padding: 5px 10px;
+    border-radius: 5px;
+    position: absolute;
+    left: 15px;
+    top: 10px;
+}
+
+.dynamic-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.dynamic-nav li {
+    display: inline;
+}
+
+.dynamic-nav a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    transition: background 0.3s;
+}
+
+.dynamic-nav a:hover {
+    background: #555;
+    border-radius: 5px;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .dynamic-nav .menu-toggle {
+        display: block;
+        color: black; /* More contrast */
+        background: white; /* Stand out on light backgrounds */
+        padding: 8px 12px;
+        font-weight: bold;
+    }
+
+    .dynamic-nav ul {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 50px; /* Adjusted to prevent overlap */
+        left: 0;
+        width: 100%;
+        background: #222;
+        text-align: left;
+        padding: 10px 0;
+    }
+
+    .dynamic-nav ul.show {
+        display: flex;
+    }
+
+    .dynamic-nav li {
+        display: block;
+        padding: 10px 20px;
+    }
+}
+
+/* Prevent content from hiding under navbar */
+.container {
+    margin-top: 60px;
+}

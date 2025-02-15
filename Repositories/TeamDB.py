@@ -26,8 +26,7 @@ class TeamDB:
     
     @session_handler
     def get_team_by_id(self, team_id) -> Team:
-        team = self.db_session.query(Team).filter(Team.id == team_id).first()
-        return team
+        return self.db_session.query(Team).filter(Team.id == team_id).first()
 
     @session_handler
     def get_all_teams(self) -> list:

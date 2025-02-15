@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
         
         let searchBox = document.createElement("input");
         searchBox.type = "text";
-        searchBox.placeholder = "Search...";
+        searchBox.placeholder = "Søg...";
         searchBox.style.marginBottom = "10px";
         table.parentElement.insertBefore(searchBox, table);
         

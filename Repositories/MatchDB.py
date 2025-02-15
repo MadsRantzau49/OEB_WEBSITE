@@ -12,8 +12,8 @@ class MatchDB:
     def add_match(self, match: Match) -> int:
         self.db_session.add(match)
         self.db_session.commit()
-        self.db_session.refresh(match)  # Refresh the object to get the match ID
-        return match.id
+        self.db_session.refresh(match)  
+        return match
 
     @session_handler
     def get_matches_by_season(self, season_id: int) -> list:

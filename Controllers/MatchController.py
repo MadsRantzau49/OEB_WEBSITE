@@ -157,4 +157,4 @@ def add_match_manually():
     except ValueError as e:
         return team_data_service.edit_team_data_html(season_id, error=e)
     except Exception as e:
-        return render_template('index.html', error=e)
+        return render_template('admin_index.html', error=e)

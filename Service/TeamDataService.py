@@ -22,7 +22,7 @@ class TeamDataService:
     
         except Exception as e:
             # In case of error, render index.html with error
-            return render_template('index.html', error=e)
+            return render_template('admin_index.html', error=e)
 
     def user_team_data_html(self, season_id, *args, **kwargs):
         try:
