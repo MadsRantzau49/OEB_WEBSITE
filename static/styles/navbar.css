@@ -67,7 +67,7 @@
         display: none;
         flex-direction: column;
         position: absolute;
-        top: 100px; /* Adjusted to prevent overlap */
+        top: 0; /* Adjusted to prevent overlap */
         left: 0;
         width: 100%;
         background: #222;
