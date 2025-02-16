@@ -8,6 +8,8 @@ skriv nogle tests templates sådan man hurtigt kan kombinere integrationstests
 
 laver regler dynamisk height
 
+test med MANGE SPILLERE, KAMPE OSV for at checke performance
+
 
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
