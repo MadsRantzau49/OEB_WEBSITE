@@ -11,6 +11,10 @@ laver regler dynamisk height
 test med MANGE SPILLERE, KAMPE OSV for at checke performance
 
 
+gøre sådan man kan tilføje en match fine manueæt og fjerne won fine osv. det er kun team og match fine der skal blive vist.
+
+i bøder er det tilgængæld ikke match fines
+
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
 --Backups skal også tages a user_data (bare curl og gem html et eller andet sted sådan hvis data'en er fucked kan man altid tilgå den manuelt)
