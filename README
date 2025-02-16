@@ -6,6 +6,8 @@ fix hvis man reloader så uploader man formen igen
 
 skriv nogle tests templates sådan man hurtigt kan kombinere integrationstests
 
+laver regler dynamisk height
+
 
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
