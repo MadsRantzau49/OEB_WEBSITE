@@ -15,6 +15,14 @@ gøre sådan man kan tilføje en match fine manueæt og fjerne won fine osv. det
 
 i bøder er det tilgængæld ikke match fines
 
+man skal hurtigt kunne give den samme bøde til flere som admin
+så en dropdown til bøden og en anden dropdown (multi select) til spillere og en submit.
+
+hente holdsport data manuelt.
+
+
+
+
 system:
 Skal tage backups af database dagligt incase nogle fucker det hele op :DD
 --Backups skal også tages a user_data (bare curl og gem html et eller andet sted sådan hvis data'en er fucked kan man altid tilgå den manuelt)
