@@ -134,13 +134,14 @@
                 <thead>
                     <tr>
                         <th>Navn</th>
+                        {% if is_admin %}
+                            <th>Opret bøde</th>
+                        {% endif %}
                         <th>Bøder</th>
                         <th>Betalt</th>
                         <th>Balance</th>
                         <th>Vasket</th>
-                        {% if is_admin %}
-                            <th>Opret bøde</th>
-                        {% endif %}
+
                     </tr>
                 </thead>
                 <tbody>
@@ -156,17 +157,7 @@
                                     <input type="submit" value="{{player.dbu_name}}">
                                 </form>
                             </td>
-                            <td>{{ player.total_fines }}</td>
-                            <td>{{ player.total_deposit }}</td>
-                            <td id="player_balance" 
-                                class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
-                                {{ player.balance }}
-                            </td>
-                            <td>{{player.number_of_clothes_washes}}</td>
-                        
-                        
-                            
-                            
+                            <!-- Give player fines as admin -->
                             {% if is_admin %}
                                 <td>
                                     <form action="/give_player_fine" method="POST" style="display:inline;">
@@ -198,6 +189,18 @@
                                 </td>
                                 
                             {% endif %}
+                            <td>{{ player.total_fines }}</td>
+                            <td>{{ player.total_deposit }}</td>
+                            <td id="player_balance" 
+                                class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
+                                {{ player.balance }}
+                            </td>
+                            <td>{{player.number_of_clothes_washes}}</td>
+                        
+                        
+                            
+                            
+                            
                         </tr>
                     {% else %}
                         <tr>
