@@ -120,7 +120,7 @@ class FineService:
         away_won = match.home_scored < match.away_scored
         draw = match.home_scored == match.away_scored
 
-        if match.home_club == team.club_name:
+        if team.club_name.upper() in match.home_club.upper():
             amount += match.home_scored * fine_amounts[FineType.SCORED_GOAL]
             amount += match.away_scored * fine_amounts[FineType.CONCEDED_GOAL]
             amount += fine_amounts[FineType.WIN_FINE] if home_won else 0
