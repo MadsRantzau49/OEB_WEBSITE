@@ -77,8 +77,8 @@ class FineService:
     def update_match_fine(self, match_lineup, match, team_id):
         match_fine = self.fine_db.get_match_fine(match.id)
         if not match_fine:
-            match_fine = Fine(name=f"{match.home_club[:3]}-{match.away_club[:3]}", 
-                                  description=f"{match.home_club} - {match.away_club}: {match.home_scored}-{match.away_scored}",
+            match_fine = Fine(name=f"{match.home_club[:3]}-{match.away_club[:3]}: {match.home_scored}-{match.away_scored}:", 
+                                  description=f"{match.home_scored}-{match.away_scored}: {match.home_club} - {match.away_club} ",
                                   amount=self.calculate_match_total_fine(match.id, team_id),
                                   team_id = team_id,
                                   match_id = match.id,

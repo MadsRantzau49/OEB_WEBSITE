@@ -24,7 +24,6 @@ class FineDB:
         return self.db_session.query(Fine).filter(
             Fine.team_id == team_id,
             Fine.fine_type != FineType.CUSTOM_FINE,
-            Fine.fine_type != FineType.MATCH_FINE
             ).all()
 
 
