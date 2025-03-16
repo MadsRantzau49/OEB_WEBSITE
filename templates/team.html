@@ -387,16 +387,17 @@
             </div>
         {% if is_admin %}
         </div class="divider">
-            <h2>Copy and Paste to messenger</h2>
-            <p>Bødekasse: 1783QN</p>
-            <p>Betal med det samme tak :)) </p>
-            <p>Se detaljer på:</p>
-            <p>https://rantzau.fun/øb</p>
+            <h2>Copy and Paste to Messenger</h2>
+            <span>Bødekasse: 1783QN</span><br>
+            <span>Betal med det samme tak :))</span><br>
+            <span>Se detaljer på:</span><br>
+            <span>https://rantzau.fun/øb</span><br>
             {% for player in team_data.players %}
                 {% if player.balance < 0 %}
-                    <p>{{ player.dbu_name }} | {{ player.balance }}</p>
+                    <span>{{ player.dbu_name }} | {{ player.balance }}</span><br>
                 {% endif %}
             {% endfor %}
+        
 
         
 
