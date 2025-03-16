@@ -83,3 +83,27 @@ def give_player_fine():
         return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
     except Exception as e:
         return render_template('admin_index.html', error=e)
+    
+@fine_controller.route("/give_fine_to_multiple_players", methods=["POST"])
+def give_fine_to_multiple_players():
+    try:
+        season_id = request.form.get("season_id",None)
+
+        fine_id = request.form["fine_id"]
+        name = request.form["fine_name"]
+        description = request.form["fine_description"]
+        amount = request.form["fine_amount"]
+        player_ids = request.form.getlist("player_ids[]") 
+        print(f"\n\n\n\n\n\n\n\n{player_ids}")
+
+        for player_id in player_ids:
+            fine_service.add_player_fine(season_id, fine_id, name, description, amount, player_id)
+                
+        return team_data_service.user_team_data_html(season_id, is_admin=True)
+    
+    except ValueError as e:
+        return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
+    except Exception as e:
+        return render_template('admin_index.html', error=e)
+    
+    
