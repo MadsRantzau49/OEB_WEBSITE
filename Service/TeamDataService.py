@@ -1,4 +1,4 @@
-from flask import render_template
+from flask import render_template, redirect, url_for, request
 from .TeamService import TeamService
 from .FineService import FineService
 from .FinanceService import FinanceService
@@ -17,12 +17,10 @@ class TeamDataService:
     def edit_team_data_html(self, season_id, *args, **kwargs):
         try:
             edit_team_data = self.team_service.get_all_edit_team_informations(season_id)
-            
-            return render_template('edit_team.html', team_data=edit_team_data, **kwargs)
+            return redirect(url_for("edit_team_data_html", season_id=season_id))
     
         except Exception as e:
-            # In case of error, render index.html with error
-            return render_template('admin_index.html', error=e)
+            return redirect(url_for("admin_index"))
 
     def user_team_data_html(self, season_id, *args, **kwargs):
         try:

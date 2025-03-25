@@ -17,7 +17,7 @@ class PlayerDB:
 
     @session_handler
     def get_players_by_team(self, team_id: int) -> list:
-        players = self.db_session.query(Player).filter(Player.team_id == team_id).all()
+        players = self.db_session.query(Player).filter(Player.team_id == team_id).order_by(Player.dbu_name.asc()).all()
         return players
     
     @session_handler

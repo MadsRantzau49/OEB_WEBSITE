@@ -193,10 +193,10 @@
                         {% if is_admin %}
                             <th>Opret bøde</th>
                         {% endif %}
-                        <th>Bøder</th>
-                        <th>Betalt</th>
                         <th>Balance</th>
                         <th>Vasket</th>
+                        <th>Bøder</th>
+                        <th>Betalt</th>
 
                     </tr>
                 </thead>
@@ -245,14 +245,14 @@
                                 </td>
                                 
                             {% endif %}
-                            <td>{{ player.total_fines }}</td>
-                            <td>{{ player.total_deposit }}</td>
                             <td id="player_balance" 
                                 class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
                                 {{ player.balance }}
                             </td>
                             <td>{{player.number_of_clothes_washes}}</td>
-                        
+                            
+                            <td>{{ player.total_fines }}</td>
+                            <td>{{ player.total_deposit }}</td>
                         
                             
                             
