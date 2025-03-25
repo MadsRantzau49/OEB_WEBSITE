@@ -17,10 +17,10 @@ class TeamDataService:
     def edit_team_data_html(self, season_id, *args, **kwargs):
         try:
             edit_team_data = self.team_service.get_all_edit_team_informations(season_id)
-            return redirect(url_for("edit_team_data_html", season_id=season_id))
+            return render_template("edit_team.html", season_id=season_id, team_data=edit_team_data, **kwargs)
     
         except Exception as e:
-            return redirect(url_for("admin_index"))
+            return render_template("admin_index.html", error=e)
 
     def user_team_data_html(self, season_id, *args, **kwargs):
         try:
