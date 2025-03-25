@@ -6,21 +6,9 @@ fix hvis man reloader så uploader man formen igen
 
 skriv nogle tests templates sådan man hurtigt kan kombinere integrationstests
 
-laver regler dynamisk height
-
 test med MANGE SPILLERE, KAMPE OSV for at checke performance
 
-
-gøre sådan man kan tilføje en match fine manueæt og fjerne won fine osv. det er kun team og match fine der skal blive vist.
-
-i bøder er det tilgængæld ikke match fines
-
-man skal hurtigt kunne give den samme bøde til flere som admin
-så en dropdown til bøden og en anden dropdown (multi select) til spillere og en submit.
-
 hente holdsport data manuelt.
-
-Lave en "skriv til messenger feature"
 
 
 system:
