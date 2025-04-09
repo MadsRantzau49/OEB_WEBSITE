@@ -450,7 +450,11 @@
             <span>https://rantzau.fun/øb</span><br>
             {% for player in team_data.players %}
                 {% if player.balance < 0 %}
-                    <span>{{ player.dbu_name }} | {{ player.balance }}</span><br>
+                    <span>{{ player.dbu_name }} | {{ player.balance }}</span>
+                    {% if player.balance < -100 %}
+                        😡😡😡
+                    {% endif %}
+                    <br>
                 {% endif %}
             {% endfor %}
 
