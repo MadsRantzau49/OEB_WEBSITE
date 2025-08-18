@@ -1,14 +1,55 @@
-document.querySelectorAll(".fine_dropdown").forEach(dropdown => {
-    dropdown.addEventListener("change", function() {
+document.addEventListener("DOMContentLoaded", function() {
+    // Make fines dropdown searchable
+    const fineDropdown = document.querySelector(".fine_dropdown");
+    const fineChoices = new Choices(fineDropdown, {
+        searchEnabled: true,
+        itemSelectText: '',
+        shouldSort: false,
+        placeholder: true,
+        placeholderValue: 'Søg bøder...',
+    });
+
+    fineDropdown.addEventListener("change", function() {
         const fine = this.value.split("|~");
-        const row = this.closest("tr"); // Find the closest table row
-        
-        row.querySelector(".fine_id").value = fine[0];
-        row.querySelector(".fine_name").value = fine[1];
-        row.querySelector(".fine_description").value = fine[2];
-        row.querySelector(".fine_amount").value = fine[3];
+        const form = this.closest("form");
+        form.querySelector(".fine_id").value = fine[0];
+        form.querySelector(".fine_name").value = fine[1];
+        form.querySelector(".fine_description").value = fine[2];
+        form.querySelector(".fine_amount").value = fine[3];
+    });
+
+    // Make players dropdown searchable and multi-select
+    const playerDropdown = document.querySelector(".player_dropdown");
+    const playerChoices = new Choices(playerDropdown, {
+        searchEnabled: true,
+        removeItemButton: true, // allow removing selected players
+        placeholder: true,
+        placeholderValue: 'Søg spillere...',
     });
 });
+
+
+// Custom searchable dropdown for players
+document.querySelectorAll(".fine-select-wrapper").forEach(wrapper => {
+    const searchInput = wrapper.querySelector(".fine-search");
+    const hiddenInput = wrapper.querySelector("input.fine_dropdown"); 
+    const options = wrapper.querySelectorAll(".fine-option");
+
+    searchInput.addEventListener("input", function() {
+        const query = this.value.toLowerCase();
+        options.forEach(opt => {
+            opt.style.display = opt.textContent.toLowerCase().includes(query) ? "block" : "none";
+        });
+    });
+
+    options.forEach(opt => {
+        opt.addEventListener("click", function() {
+            hiddenInput.value = this.dataset.value;
+            searchInput.value = this.textContent;
+        });
+    });
+});
+
 
 
 document.addEventListener("DOMContentLoaded", function () {

@@ -120,3 +120,94 @@ textarea {
         height: 120px;
     }
 }
+
+/* --- ADMIN SECTION MOBILE-FIRST --- */
+.admin-section {
+    background: #fff;
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 16px;
+}
+
+/* Headings */
+.admin-section h2 {
+    font-size: 1rem;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+/* Forms stacked vertically */
+.admin-section form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+/* Inputs */
+.admin-section input[type="file"],
+.admin-section input[type="text"],
+.admin-section input[type="number"],
+.admin-section select {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.9rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    box-sizing: border-box;
+}
+
+/* Submit buttons */
+.admin-section input[type="submit"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    background: #007bff;
+    color: #fff;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.admin-section input[type="submit"]:hover {
+    background: #0056b3;
+}
+
+/* Special case: fines for multiple players */
+.give-fine-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Player multiselect takes full height */
+.give-fine-form select[multiple] {
+    height: 120px;
+    font-size: 0.9rem;
+}
+
+/* Labels look clear */
+.give-fine-form label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+}
+
+/* Responsive fine-tuning for very small phones */
+@media (max-width: 400px) {
+    .admin-section h2 {
+        font-size: 0.9rem;
+    }
+    .admin-section input,
+    .admin-section select {
+        font-size: 0.8rem;
+        padding: 8px;
+    }
+    .admin-section input[type="submit"] {
+        font-size: 0.9rem;
+        padding: 10px;
+    }
+}

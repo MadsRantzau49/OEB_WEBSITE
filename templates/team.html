@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flask Website</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/team.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/navbar.css') }}">
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='styles/navbar.css') }}"> -->
     <script src="{{ url_for('static', filename='javascript/team.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='javascript/navbar.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='javascript/registerServiceWorker.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='javascript/navbar.js') }}" defer></script> -->
+    <!-- <script src="{{ url_for('static', filename='javascript/registerServiceWorker.js') }}"></script> -->
     <link rel="manifest" crossorigin="use-credentials" href="/manifest.json/{{ team_data.team.team_name }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
 </head>
 <body>
     <!-- Display error message if it exists -->
@@ -105,9 +108,51 @@
             </div>    
         {% endif %}
 
-        <!-- ADMIN -->        
+        <!-- ADMIN -->     
         {% if is_admin %}
-            <div class="divider">
+        <div class="divider admin-section">
+            <h2>Give fine to multiple players</h2>
+
+            <form action="/give_fine_to_multiple_players" method="POST" class="give-fine-form">
+
+                <!-- Fine dropdown (searchable) -->
+                <label for="fine_dropdown">Vælg bøde:</label>
+                <select name="fine_dropdown" class="fine_dropdown">
+                    <option value="0|~ |~ |~0|~">Bøder</option>
+                    {% for fine in team_data.fines %}
+                        <option value="{{ fine.id }}|~{{ fine.name }}|~{{ fine.description }}|~{{ fine.amount }}">{{ fine.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="fine_name">Navn:</label>
+                <input type="text" class="fine_name" name="fine_name" placeholder="Name" required>
+
+                <label for="fine_description">Beskrivelse:</label>
+                <input type="text" class="fine_description" name="fine_description" placeholder="Description" required>
+
+                <label for="fine_amount">Beløb:</label>
+                <input type="number" class="fine_amount" name="fine_amount" value="0" required>
+
+                <input type="hidden" class="fine_id" name="fine_id" value="0">
+
+                <!-- Players select (searchable multi-select) -->
+                <label for="player_ids">Vælg spillere:</label>
+                <select name="player_ids[]" class="player_dropdown" multiple required>
+                    {% for player in team_data.players %}
+                        <option value="{{ player.id }}">{{ player.dbu_name }}</option>
+                    {% endfor %}
+                </select>
+
+                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
+
+                <input type="submit" value="Tilføj">
+            </form>
+        </div>
+        {% endif %}
+
+
+        {% if is_admin %}
+            <div class="divider admin-section">
                 <h2>Admin Rettigheder</h2>
 
                 <form action="/render/edit_team" method="POST" style="display:inline;">
@@ -126,61 +171,7 @@
             </div>
         {% endif %}
 
-        {% if is_admin %}
-            <div class="divider">
-                <h2>Give fine to multiple players</h2>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Bøde</th>
-                            <th>Spillere</th>
-                            <th>Submit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <form action="/give_fine_to_multiple_players" method="POST" style="display:inline;">
-                        <tr>
-                            <td>
-                                <label for="fine_dropdown">Vælg bøde:</label>
-                                <select name="fine_dropdown" class="fine_dropdown">
-                                    <!-- 
-                                        This code is the worst but it works for now.
-                                        It just split the string from |~ 
-                                        which is two random special signs i dont expect to be used in a name or description XD.
-                                        You can split and object into JSON format but i dont wanna waste time on it because it doesnt work in first try ://
-                                        FUCK JS
-                                    -->
-                                    <option value="0|~ |~ |~0|~">Bøder</option>
-                                    {% for fine in team_data.fines %}
-                                        <option value="{{ fine.id }}|~{{ fine.name }}|~{{ fine.description }}|~{{ fine.amount }}">{{ fine.name }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="text" class="fine_name" name="fine_name" placeholder="Name" required>
-                                <input type="text" class="fine_description" name="fine_description" placeholder="Description" required>
-                                <input type="number" class="fine_amount" name="fine_amount" value="0" required>
-                                <input type="hidden" class="fine_id" name="fine_id" value="0">
-                            </td>
-                            <td>
-                                <select name="player_ids[]" multiple required>
-                                    {% for player in team_data.players %}
-                                        <option value="{{ player.id }}">{{ player.dbu_name }}</option>
-                                    {% else %}
-                                        <!-- nothing -->
-                                    {% endfor %}
-                                </select>
-            
-                                <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                            </td>
-                            <td>
-                            <input type="submit" value="Tilføj">
-                            </td>
-                        </tr>
-                        </form>
-                    </tbody>
-                </table>
-            </div>
-        {% endif %}
+ 
 
         <!-- Players -->        
         <div class="divider">
@@ -190,9 +181,6 @@
                 <thead>
                     <tr>
                         <th>Navn</th>
-                        {% if is_admin %}
-                            <th>Opret bøde</th>
-                        {% endif %}
                         <th>Balance</th>
                         <th>Vasket</th>
                         <th>Bøder</th>
@@ -213,38 +201,6 @@
                                     <input type="submit" value="{{player.dbu_name}}">
                                 </form>
                             </td>
-                            <!-- Give player fines as admin -->
-                            {% if is_admin %}
-                                <td>
-                                    <form action="/give_player_fine" method="POST" style="display:inline;">
-                                        <label for="fine_dropdown">Vælg bøde:</label>
-                                        <select name="fine_dropdown" class="fine_dropdown">
-                                            <!-- 
-                                                This code is the worst but it works for now.
-                                                It just split the string from |~ 
-                                                which is two random special signs i dont expect to be used in a name or description XD.
-                                                You can split and object into JSON format but i dont wanna waste time on it because it doesnt work in first try ://
-                                                FUCK JS
-                                            -->
-                                            <option value="0|~ |~ |~0|~">Bøder</option>
-                                            {% for fine in team_data.fines %}
-                                                <option value="{{ fine.id }}|~{{ fine.name }}|~{{ fine.description }}|~{{ fine.amount }}">{{ fine.name }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        
-                                
-                                        <input type="text" class="fine_name" name="fine_name" placeholder="Name" required>
-                                        <input type="text" class="fine_description" name="fine_description" placeholder="Description" required>
-                                        <input type="number" class="fine_amount" name="fine_amount" value="0" required>
-                                
-                                        <input type="hidden" name="player_id" value="{{ player.id }}">
-                                        <input type="hidden" class="fine_id" name="fine_id" value="0">
-                                        <input type="hidden" name="season_id" value="{{ team_data.season.id }}">
-                                        <input type="submit" value="Tilføj">
-                                    </form>
-                                </td>
-                                
-                            {% endif %}
                             <td id="player_balance" 
                                 class="{% if player.balance > 0 %}overpaid{% elif player.balance == 0 %}perfectpaid{% else %}underpaid{% endif %}">
                                 {{ player.balance }}
@@ -267,7 +223,7 @@
 
             </table>
         </div>
-            
+           
         <!-- Matches -->
         <div class="divider">
             <h2>Kampe</h2>

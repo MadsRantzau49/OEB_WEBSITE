@@ -99,7 +99,7 @@ def give_fine_to_multiple_players():
         for player_id in player_ids:
             fine_service.add_player_fine(season_id, fine_id, name, description, amount, player_id)
                 
-        return team_data_service.user_team_data_html(season_id, is_admin=True)
+        return team_data_service.user_team_data_html(season_id, is_admin=True, success="Successfully added fines")
     
     except ValueError as e:
         return team_data_service.user_team_data_html(season_id, is_admin=True, error=e)
