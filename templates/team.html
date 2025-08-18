@@ -8,7 +8,7 @@
     <!-- <link rel="stylesheet" href="{{ url_for('static', filename='styles/navbar.css') }}"> -->
     <script src="{{ url_for('static', filename='javascript/team.js') }}" defer></script>
     <!-- <script src="{{ url_for('static', filename='javascript/navbar.js') }}" defer></script> -->
-    <!-- <script src="{{ url_for('static', filename='javascript/registerServiceWorker.js') }}"></script> -->
+    <script src="{{ url_for('static', filename='javascript/registerServiceWorker.js') }}"></script>
     <link rel="manifest" crossorigin="use-credentials" href="/manifest.json/{{ team_data.team.team_name }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
@@ -407,8 +407,8 @@
             {% for player in team_data.players %}
                 {% if player.balance < 0 %}
                     <span>{{ player.dbu_name }} | {{ player.balance }}</span>
-                    {% if player.balance < -100 %}
-                        😡😡😡
+                    {% if player.balance < -200 %}
+                        😡
                     {% endif %}
                     <br>
                 {% endif %}
