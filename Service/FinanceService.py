@@ -50,19 +50,20 @@ class FinanceService:
 
             # Process data line by line using the 'iterrows()' method, ignoring rows where date < 2024-03-10
             for index, row in df.iterrows():
-                date = row['Date']
+                date = row.get('Date', row.get('Dato'))
                 if end_date and date > end_date:
                     continue
                 if date < start_date:
                     continue
 
-                name = row['Name']
+                name = row.get('Name', row.get('Navn'))
                 # type_ = row['Type']
-                # number = row['Number']
-                message = row['Message'] if pd.notna(row['Message']) else "" 
-                amount = row['Amount']
-                currency = row['Currency']
-                transaction_type = row['Transaction type']
+                # number = row.get('Number', row.get('Nummer'))
+                message = row.get('Message', row.get('Besked')) or ""
+                amount = row.get('Amount', row.get('Beløb'))
+                currency = row.get('Currency', row.get('Valuta'))
+                transaction_type = row.get('Transaction type', row.get('Transaktionstype'))
+                print("\n", name, message, amount, currency, transaction_type, "\n\n\n\n\n")
 
                 if transaction_type == "Pay out":
                     continue
@@ -103,20 +104,20 @@ class FinanceService:
             mobilepay_rows = []
 
             for index, row in df.iterrows():
-                date = row['Date']
+                date = row.get('Date', row.get('Dato'))
                 if end_date and date > end_date:
                     continue
                 if date < start_date:
                     continue
 
-                name = row['Name']
+                name = row.get('Name', row.get('Navn'))
                 # type_ = row['Type']
-                # number = row['Number']
-                message = row['Message'] if pd.notna(row['Message']) else "" 
-                amount = row['Amount']
-                currency = row['Currency']
-                transaction_type = row['Transaction type']
-
+                # number = row.get('Number', row.get('Nummer'))
+                message = row.get('Message', row.get('Besked')) or ""
+                amount = row.get('Amount', row.get('Beløb'))
+                currency = row.get('Currency', row.get('Valuta'))
+                transaction_type = row.get('Transaction type', row.get('Transaktionstype'))
+                print("\n", name, message, amount, currency, transaction_type, "\n\n\n\n\n")
                 if transaction_type == "Pay in":
                     continue
 
