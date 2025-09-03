@@ -143,6 +143,8 @@ class FineService:
             fine = self.fine_db.get_fine_by_id(player_fine.fine_id)
             fine.date = player_fine.date
             fine.player_fine_id = player_fine.id
+            if not fine.amount:
+                fine.amount = 0
             player.total_fines += fine.amount
             player.fine_list.append(fine)
         return player

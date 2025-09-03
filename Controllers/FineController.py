@@ -94,7 +94,6 @@ def give_fine_to_multiple_players():
         description = request.form["fine_description"]
         amount = request.form["fine_amount"]
         player_ids = request.form.getlist("player_ids[]") 
-        print(f"\n\n\n\n\n\n\n\n{player_ids}")
 
         for player_id in player_ids:
             fine_service.add_player_fine(season_id, fine_id, name, description, amount, player_id)

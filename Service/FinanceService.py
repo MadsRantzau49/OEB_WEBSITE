@@ -63,7 +63,6 @@ class FinanceService:
                 amount = row.get('Amount', row.get('Beløb'))
                 currency = row.get('Currency', row.get('Valuta'))
                 transaction_type = row.get('Transaction type', row.get('Transaktionstype'))
-                print("\n", name, message, amount, currency, transaction_type, "\n\n\n\n\n")
 
                 if transaction_type == "Pay out":
                     continue
@@ -117,7 +116,6 @@ class FinanceService:
                 amount = row.get('Amount', row.get('Beløb'))
                 currency = row.get('Currency', row.get('Valuta'))
                 transaction_type = row.get('Transaction type', row.get('Transaktionstype'))
-                print("\n", name, message, amount, currency, transaction_type, "\n\n\n\n\n")
                 if transaction_type == "Pay in":
                     continue
 
