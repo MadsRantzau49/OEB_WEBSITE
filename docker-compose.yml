@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-oeb}
+      POSTGRES_USER: ${POSTGRES_USER:-oeb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      AUTO_CREATE_SCHEMA: "0"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      DBU_REQUEST_TIMEOUT: ${DBU_REQUEST_TIMEOUT:-20}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
+      SESSION_DAYS: ${SESSION_DAYS:-365}
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  init-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: "no"
+    command: ["python", "-m", "backend.init_db"]
+    environment:
+      AUTO_CREATE_SCHEMA: "1"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dbu-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do python -m backend.jobs; sleep $${DBU_SYNC_SECONDS:-900}; done"]
+    environment:
+      AUTO_CREATE_SCHEMA: "0"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
+      DBU_REQUEST_TIMEOUT: ${DBU_REQUEST_TIMEOUT:-20}
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "${WEB_PORT:-80}:80"
+      - "${WEB_HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

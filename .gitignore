@@ -1,1 +1,12 @@
-database/database.db
+Database/database.db
+Database/*.db
+Database/*.sqlite
+data/
+__pycache__/
+*.py[cod]
+node_modules/
+frontend/dist/
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/tsconfig*.tsbuildinfo
+.env

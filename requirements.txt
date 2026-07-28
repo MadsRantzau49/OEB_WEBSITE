@@ -1,7 +1,9 @@
-sqlalchemy
-flask
-bs4
-requests
-pandas
-openpyxl
-pytest
+Flask>=3.0,<4
+SQLAlchemy>=2.0,<3
+beautifulsoup4>=4.12,<5
+requests>=2.31,<3
+pandas>=2.1,<3
+openpyxl>=3.1,<4
+gunicorn>=21,<24
+psycopg[binary]>=3.2,<4
+pytest>=8,<9

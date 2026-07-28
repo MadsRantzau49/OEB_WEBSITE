@@ -1,18 +1,234 @@
-Mangler før production:
+# Bødekassen
 
-lave try, exeptions til alt user_edit_team_data sådan den retunere null men den findes så man altid burde kunne tilgå siden men bare med færre data
+This guide assumes you are new to Docker. You do not need to install Python, PostgreSQL, or Node manually when you use Docker.
 
-fix hvis man reloader så uploader man formen igen
+## Start Here
 
-skriv nogle tests templates sådan man hurtigt kan kombinere integrationstests
+The application is currently configured to run at:
 
-test med MANGE SPILLERE, KAMPE OSV for at checke performance
+```text
+http://localhost:8090
+```
 
-hente holdsport data manuelt.
+Start it with:
 
+```bash
+cd /home/rantzau/websites/OEB_WEBSITE
+docker-compose up -d
+```
 
-system:
-Skal tage backups af database dagligt incase nogle fucker det hele op :DD
---Backups skal også tages a user_data (bare curl og gem html et eller andet sted sådan hvis data'en er fucked kan man altid tilgå den manuelt)
-supportere HTTPS.
-tilføj domæne.
+Then open `http://localhost:8090` in your browser.
+
+## What Docker Is Doing
+
+Docker runs each part of the application in a separate container:
+
+| Container | Purpose |
+|---|---|
+| `web` | Serves the React website and forwards `/api` calls to the backend |
+| `api` | Login, permissions, fines, players, MobilePay, and DBU logic |
+| `db` | PostgreSQL database containing the application data |
+| `dbu-cron` | Checks DBU automatically every 15 minutes |
+| `init-db` | Creates new database tables, then exits normally |
+
+The flow is:
+
+```text
+Browser -> web -> api -> db
+                    ^
+                    |
+                 dbu-cron
+```
+
+`init-db` is a short setup task. It is normal that it says `Exited (0)` or does not appear in the normal running-container list.
+
+## First Installation
+
+This workspace already has a private `.env` file. On a new server, create it once:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and change at least:
+
+```text
+SECRET_KEY=use-a-long-random-value
+POSTGRES_PASSWORD=use-a-long-random-password
+```
+
+Build and start everything:
+
+```bash
+docker-compose up -d --build
+```
+
+The first build downloads the base images and installs dependencies. On a Raspberry Pi this can take several minutes. Later starts are much faster.
+
+Check the result:
+
+```bash
+docker-compose ps
+```
+
+The `db`, `api`, `dbu-cron`, and `web` services should say `Up`. The database should eventually say `healthy`.
+
+## Everyday Commands
+
+Start the application:
+
+```bash
+docker-compose up -d
+```
+
+See what is running:
+
+```bash
+docker-compose ps
+```
+
+Watch logs from every service:
+
+```bash
+docker-compose logs -f
+```
+
+Watch only the backend:
+
+```bash
+docker-compose logs -f api
+```
+
+Stop the application:
+
+```bash
+docker-compose down
+```
+
+`docker-compose down` stops containers but keeps the database.
+
+After changing or downloading new code:
+
+```bash
+docker-compose up -d --build
+```
+
+## Important Data Warning
+
+Do not run this command unless you intentionally want to delete the PostgreSQL database:
+
+```text
+docker-compose down -v
+```
+
+The `-v` option deletes Docker volumes. The application data is stored in the `postgres_data` volume.
+
+## If a Port Is Busy
+
+The local site uses port `8090`. If Docker reports `address already in use`, edit `.env`:
+
+```text
+WEB_PORT=8091
+CORS_ORIGIN=http://localhost:8091
+```
+
+Restart:
+
+```bash
+docker-compose up -d --force-recreate web api
+```
+
+Then open `http://localhost:8091`.
+
+## Initial Application Setup
+
+On the first visit, enter:
+
+1. Club and team name.
+2. A stable part of the DBU name, for example `Øster Sundby`.
+3. One or more DBU kampprogram links, one per line.
+4. MobilePay Box number, for example `1783QN`.
+5. The Box share link copied from MobilePay using `Box -> Share -> Copy link`.
+6. Owner username and an optional password.
+
+Passwords are optional. Usernames and passwords ignore uppercase/lowercase differences.
+
+## MobilePay
+
+The public Box number and the Box share link are different:
+
+- Box number: easy to type manually, for example `1783QN`.
+- Share link: resembles `https://qr.mobilepay.dk/box/<long-id>/pay-in`.
+
+The share link lets the PWA open MobilePay with the player’s amount and name already filled in. If only the Box number is configured, the app offers to copy the payment information instead.
+
+Upload the latest `.xlsx` export under `Administration -> MobilePay`. Existing transactions are deduplicated, so uploading an overlapping export does not create duplicate payments.
+
+If players are added or their MobilePay names change after an upload, use `Tjek spillernavne igen`. It rematches only unassigned incoming payments and does not replace existing or manual assignments.
+
+### Can the Box update automatically?
+
+MobilePay does not provide a public transaction API for a private MobilePay Box. The available Vipps MobilePay APIs are business products and do not expose Box `1783QN`. Therefore the safe Box workflow is still uploading the `.xlsx` export.
+
+If the club later changes to a MobilePay business agreement, the backend can be connected to the official business API, but that requires business credentials and is a different payment product.
+
+## DBU and Matches
+
+One fine box may have several DBU teams. Add every kampprogram link under `Administration -> DBU-links`.
+
+The automatic worker:
+
+1. Finds matches from every configured DBU link.
+2. Reads score and lineup.
+3. Matches DBU names to players already created by an administrator.
+4. Leaves unknown names for manual approval instead of creating players automatically.
+5. Creates match fines only when the data is complete.
+
+The `dbu-cron` container runs once when it starts and then repeats after `DBU_SYNC_SECONDS` (900 seconds / 15 minutes by default). `Administration -> DBU-links -> Opdater fra DBU nu` starts the same synchronization immediately when you do not want to wait.
+
+An administrator can open `Administration -> Kampe, spillere og vasker` to:
+
+- Add or remove players from a match.
+- Select the clothes washer.
+- Restore the original DBU lineup.
+- Add and delete manual training or friendly matches that are not on DBU.
+
+Under `Administration -> Spillere`, administrators can add players manually, map names found on DBU, edit DBU/MobilePay names, and delete players without a user, payment, or ordinary fine. Match-generated fines are removed when an unwanted DBU player is deleted.
+
+Manual lineup corrections remain in place during later DBU updates.
+
+## Install as an App
+
+The frontend is a PWA. On a phone, open the site and choose `Add to Home Screen` or `Install app` in the browser menu.
+
+Login sessions are remembered for up to one year. Static application files are cached, but financial API responses are not cached offline.
+
+## Production Domain
+
+For a real public domain, edit `.env`:
+
+```text
+DOMAIN=your-domain.dk
+WEB_PORT=80
+WEB_HTTPS_PORT=443
+CORS_ORIGIN=https://your-domain.dk
+SESSION_COOKIE_SECURE=1
+```
+
+Point the domain’s DNS to the server and run:
+
+```bash
+docker-compose up -d --build
+```
+
+Caddy will request and renew HTTPS certificates automatically.
+
+## Tests Without Docker
+
+These commands are only for development:
+
+```bash
+.venv/bin/pytest -q
+cd frontend
+npm run build
+```
