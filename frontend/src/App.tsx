@@ -1,7 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import AdminPanel from "./AdminPanel";
 import { api, jsonBody, setCsrfToken } from "./api";
-import type { Dashboard, PaymentSettings, Permission, Player, SetupStatus, Squad, User } from "./types";
+import type { Charge, Dashboard, PaymentSettings, Permission, Player, SetupStatus, Squad, User } from "./types";
 
 type View = "home" | "login" | "register" | "dashboard";
 
@@ -217,7 +217,7 @@ function RegisterScreen({ squads, onDone, onBack, onError, error }: { squads: Sq
 function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHome, onError, error }: { squad: Squad; squads: Squad[]; user: User | null; onSquad: (squad: Squad) => void; onLogin: () => void; onLogout: () => void; onHome: () => void; onError: (reason: unknown) => void; error: string }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
@@ -233,7 +233,7 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
   useEffect(() => { void load(); }, [squad.id, user?.id, version]);
   useEffect(() => {
     setSearch("");
-    setSelectedPlayer(null);
+    setSelectedPlayerId(null);
     setPlayerListOpen(true);
     if (user) { setRecentPlayerIds([]); return; }
     try {
@@ -242,7 +242,9 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
     } catch { setRecentPlayerIds([]); }
   }, [squad.slug, user?.id]);
   const ownPlayer = dashboard?.players.find((player) => player.id === user?.playerId && player.squadId === squad.id) || null;
+  const selectedPlayer = dashboard?.players.find((player) => player.id === selectedPlayerId) || null;
   const canApproveFines = hasPermission(user, squad.id, "approve_fine_requests");
+  const canManageFines = canApproveFines || hasPermission(user, squad.id, "issue_fines");
   const normalizedSearch = search.trim().toLocaleLowerCase("da-DK");
   const debtSortedPlayers = [...(dashboard?.players || [])].sort((left, right) => {
     const debtDifference = Math.max(-right.balance, 0) - Math.max(-left.balance, 0);
@@ -257,7 +259,7 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
     : defaultPlayers
   );
   function openPlayer(player: Player) {
-    setSelectedPlayer(player);
+    setSelectedPlayerId(player.id);
     if (user) return;
     const next = [player.id, ...recentPlayerIds.filter((id) => id !== player.id)].slice(0, 10);
     setRecentPlayerIds(next);
@@ -278,7 +280,7 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
       {dashboard && <div className="dashboard">
         {user && <button className="primary-action request-button" onClick={() => setRequestOpen(true)}>{canApproveFines ? "Giv bøde" : "Anmod om bøde"}</button>}
 
-        {ownPlayer && <OwnBalance player={ownPlayer} payment={dashboard.payment} onDetails={() => setSelectedPlayer(ownPlayer)} />}
+        {ownPlayer && <OwnBalance player={ownPlayer} payment={dashboard.payment} onDetails={() => setSelectedPlayerId(ownPlayer.id)} />}
 
         <section className="search-card">
           <span className="eyebrow">{ownPlayer ? "FIND EN HOLDKAMMERAT" : "FIND DIG SELV"}</span>
@@ -306,7 +308,7 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
         {user && <AdminPanel dashboard={dashboard} user={user} onFailure={onError} onRefresh={() => setVersion((value) => value + 1)} />}
       </div>}
 
-      {selectedPlayer && dashboard && <PlayerSheet player={selectedPlayer} payment={dashboard.payment} onClose={() => setSelectedPlayer(null)} />}
+      {selectedPlayer && dashboard && <PlayerSheet player={selectedPlayer} payment={dashboard.payment} squadId={squad.id} canManageFines={canManageFines} onClose={() => setSelectedPlayerId(null)} onError={onError} onSaved={() => setVersion((value) => value + 1)} />}
       {requestOpen && dashboard && <RequestSheet dashboard={dashboard} instant={canApproveFines} onClose={() => setRequestOpen(false)} onError={onError} onSaved={() => { setRequestOpen(false); setVersion((value) => value + 1); }} />}
       {error && <ErrorMessage text={error} />}
     </Shell>
@@ -318,9 +320,32 @@ function OwnBalance({ player, payment, onDetails }: { player: Player; payment: P
   return <section className={`own-balance ${debt ? "owes" : "clear"}`}><span className="eyebrow">DIN SALDO</span><h1>{debt ? `Du skylder ${money(debt)}` : "Du er helt ajour"}</h1><p>{debt ? `${player.fines.length} bøder. Se præcis hvorfor nedenfor.` : "Der er ikke noget, du skal betale."}</p><div className="action-row"><button className="secondary-action" onClick={onDetails}>Se hvorfor</button>{debt > 0 && <PaymentButton player={player} payment={payment} />}</div></section>;
 }
 
-function PlayerSheet({ player, payment, onClose }: { player: Player; payment: PaymentSettings; onClose: () => void }) {
+function PlayerSheet({ player, payment, squadId, canManageFines, onClose, onError, onSaved }: { player: Player; payment: PaymentSettings; squadId: number; canManageFines: boolean; onClose: () => void; onError: (reason: unknown) => void; onSaved: () => void }) {
   const debt = Math.max(-player.balance, 0);
-  return <div className="sheet-backdrop" onMouseDown={onClose}><section className="bottom-sheet" onMouseDown={(event) => event.stopPropagation()}><button className="sheet-close" onClick={onClose} aria-label="Luk">×</button><span className="eyebrow">SALDO FOR</span><h2>{player.name}</h2><div className={`amount-due ${debt ? "debt" : "settled"}`}><span>{debt ? "Skylder" : "Status"}</span><strong>{debt ? money(debt) : "Betalt"}</strong></div>{debt > 0 && <PaymentButton player={player} payment={payment} full />}<h3>Hvorfor?</h3>{player.fines.length === 0 ? <p className="empty-copy">Ingen bøder.</p> : <div className="fine-list">{player.fines.map((fine) => <article key={fine.id}><div><b>{fine.title}</b><p>{fine.description || "Ingen ekstra beskrivelse"}</p><small>{dateLabel(fine.date)}</small></div><strong>{money(fine.amount)}</strong></article>)}</div>}<details className="payments-fold"><summary>Se betalinger ({player.payments.length})</summary><div className="simple-rows">{player.payments.map((item) => <div key={item.id}><span><b>{item.message || item.name || "MobilePay"}</b><small>{dateLabel(item.date)}</small></span><strong>{money(item.amount)}</strong></div>)}</div></details></section></div>;
+  return <div className="sheet-backdrop" onMouseDown={onClose}><section className="bottom-sheet" onMouseDown={(event) => event.stopPropagation()}><button className="sheet-close" onClick={onClose} aria-label="Luk">×</button><span className="eyebrow">SALDO FOR</span><h2>{player.name}</h2><div className={`amount-due ${debt ? "debt" : "settled"}`}><span>{debt ? "Skylder" : "Status"}</span><strong>{debt ? money(debt) : "Betalt"}</strong></div>{debt > 0 && <PaymentButton player={player} payment={payment} full />}<h3>Hvorfor?</h3>{player.fines.length === 0 ? <p className="empty-copy">Ingen bøder.</p> : <div className="fine-list">{player.fines.map((fine) => canManageFines ? <FineEditor key={`${fine.id}-${fine.title}-${fine.description}-${fine.amount}`} fine={fine} playerName={player.name} squadId={squadId} onError={onError} onSaved={onSaved} /> : <article key={fine.id}><div><b>{fine.title}</b><p>{fine.description || "Ingen ekstra beskrivelse"}</p><small>{dateLabel(fine.date)}</small></div><strong>{money(fine.amount)}</strong></article>)}</div>}<details className="payments-fold"><summary>Se betalinger ({player.payments.length})</summary><div className="simple-rows">{player.payments.map((item) => <div key={item.id}><span><b>{item.message || item.name || "MobilePay"}</b><small>{dateLabel(item.date)}</small></span><strong>{money(item.amount)}</strong></div>)}</div></details></section></div>;
+}
+
+function FineEditor({ fine, playerName, squadId, onError, onSaved }: { fine: Charge; playerName: string; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(fine.title);
+  const [description, setDescription] = useState(fine.description);
+  const [amount, setAmount] = useState(String(fine.amount));
+  const [busy, setBusy] = useState(false);
+  async function save(event: FormEvent) {
+    event.preventDefault(); setBusy(true);
+    try {
+      await api(`/squads/${squadId}/charges/${fine.id}`, { method: "PATCH", body: JSON.stringify({ title, description, amount }) });
+      onSaved();
+    } catch (reason) { onError(reason); } finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`Slet bøden "${fine.title}" fra ${playerName}? Spillerens saldo bliver rettet med det samme.`)) return;
+    setBusy(true);
+    try {
+      await api(`/squads/${squadId}/charges/${fine.id}`, { method: "DELETE" });
+      onSaved();
+    } catch (reason) { onError(reason); setBusy(false); }
+  }
+  return <details className="fine-editor"><summary><span><b>{fine.title}</b><small>{dateLabel(fine.date)} · Tryk for at redigere</small></span><strong>{money(fine.amount)}</strong></summary><form onSubmit={save}><Field label="Navn på bøde" value={title} onChange={setTitle} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bøde</button></form></details>;
 }
 
 function PaymentButton({ player, payment, full = false, compact = false }: { player: Player; payment: PaymentSettings; full?: boolean; compact?: boolean }) {

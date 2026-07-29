@@ -774,6 +774,56 @@ def create_direct_charges(squad_id):
     return jsonify({"charges": [charge_json(charge) for charge in created]}), 201
 
 
+def can_manage_charges(database_session, user, squad_id):
+    return has_permission(database_session, user, squad_id, "issue_fines") or has_permission(
+        database_session, user, squad_id, "approve_fine_requests"
+    )
+
+
+@api.patch("/squads/<int:squad_id>/charges/<int:charge_id>")
+@user_required
+def update_charge(squad_id, charge_id):
+    database_session = get_db()
+    if not can_manage_charges(database_session, load_current_user(), squad_id):
+        return error("permission_denied", 403)
+    charge = database_session.scalar(
+        select(FineCharge).where(FineCharge.id == charge_id, FineCharge.squad_id == squad_id)
+    )
+    if charge is None:
+        return error("fine_charge_not_found", 404)
+    data = body()
+    if "title" in data:
+        title = str(data["title"] or "").strip()
+        if not title:
+            return error("title_is_required")
+        charge.title = title
+    if "description" in data:
+        charge.description = str(data["description"] or "").strip()
+    if "amount" in data or "amountCents" in data:
+        try:
+            charge.amount_cents = max(0, parse_amount_input(data))
+        except (ValueError, TypeError) as exc:
+            return error(str(exc))
+    database_session.commit()
+    return jsonify({"charge": charge_json(charge)})
+
+
+@api.delete("/squads/<int:squad_id>/charges/<int:charge_id>")
+@user_required
+def delete_charge(squad_id, charge_id):
+    database_session = get_db()
+    if not can_manage_charges(database_session, load_current_user(), squad_id):
+        return error("permission_denied", 403)
+    charge = database_session.scalar(
+        select(FineCharge).where(FineCharge.id == charge_id, FineCharge.squad_id == squad_id)
+    )
+    if charge is None:
+        return error("fine_charge_not_found", 404)
+    database_session.delete(charge)
+    database_session.commit()
+    return jsonify({"deleted": True})
+
+
 @api.get("/squads/<int:squad_id>/fine-rules")
 @user_required
 def get_fine_rules(squad_id):
@@ -842,6 +892,23 @@ def update_fine_rule(squad_id, rule_id):
         rule.active = bool(data["active"])
     database_session.commit()
     return jsonify({"rule": rule_json(rule)})
+
+
+@api.delete("/squads/<int:squad_id>/fine-rules/<int:rule_id>")
+@user_required
+def delete_fine_rule(squad_id, rule_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_fine_rules")
+    if permission:
+        return permission
+    rule = database_session.scalar(
+        select(FineRule).where(FineRule.id == rule_id, FineRule.squad_id == squad_id)
+    )
+    if rule is None:
+        return error("fine_rule_not_found", 404)
+    database_session.delete(rule)
+    database_session.commit()
+    return jsonify({"deleted": True})
 
 
 @api.get("/squads/<int:squad_id>/players")

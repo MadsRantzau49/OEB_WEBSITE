@@ -166,6 +166,75 @@ def test_guest_cannot_mutate(tmp_path):
     assert denied.status_code == 403
 
 
+def test_admin_can_manage_fine_rules_and_issued_fines(tmp_path):
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json=setup_payload())
+    token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    season_id = setup.get_json()["squad"]["currentSeason"]["id"]
+    player = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Fine Player"},
+        headers={"X-CSRF-Token": token},
+    ).get_json()["player"]
+    created_rule = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-rules",
+        json={"name": "Gamle sko", "description": "Gammel beskrivelse", "amount": 20},
+        headers={"X-CSRF-Token": token},
+    )
+    assert created_rule.status_code == 201
+    rule_id = created_rule.get_json()["rule"]["id"]
+
+    updated_rule = owner.patch(
+        f"/api/v1/squads/{squad_id}/fine-rules/{rule_id}",
+        json={"name": "Glemte sko", "description": "Husk dine støvler", "amount": 35},
+        headers={"X-CSRF-Token": token},
+    )
+    assert updated_rule.status_code == 200
+    assert updated_rule.get_json()["rule"]["name"] == "Glemte sko"
+    assert updated_rule.get_json()["rule"]["description"] == "Husk dine støvler"
+    assert updated_rule.get_json()["rule"]["amount"] == 35
+
+    issued = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={"seasonId": season_id, "ruleId": rule_id, "playerIds": [player["id"]]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert issued.status_code == 201
+    assert issued.get_json()["request"]["description"] == "Husk dine støvler"
+    dashboard = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    charge = dashboard["players"][0]["fines"][0]
+
+    updated_charge = owner.patch(
+        f"/api/v1/squads/{squad_id}/charges/{charge['id']}",
+        json={"title": "Glemte begge sko", "description": "Rettet af admin", "amount": 10},
+        headers={"X-CSRF-Token": token},
+    )
+    assert updated_charge.status_code == 200
+    assert updated_charge.get_json()["charge"]["title"] == "Glemte begge sko"
+    assert updated_charge.get_json()["charge"]["description"] == "Rettet af admin"
+    assert updated_charge.get_json()["charge"]["amount"] == 10
+
+    deleted_rule = owner.delete(
+        f"/api/v1/squads/{squad_id}/fine-rules/{rule_id}",
+        headers={"X-CSRF-Token": token},
+    )
+    assert deleted_rule.status_code == 200
+    after_rule_deletion = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    assert after_rule_deletion["rules"] == []
+    assert after_rule_deletion["players"][0]["fines"][0]["amount"] == 10
+
+    deleted_charge = owner.delete(
+        f"/api/v1/squads/{squad_id}/charges/{charge['id']}",
+        headers={"X-CSRF-Token": token},
+    )
+    assert deleted_charge.status_code == 200
+    after_charge_deletion = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    assert after_charge_deletion["players"][0]["fines"] == []
+    assert after_charge_deletion["players"][0]["totalFines"] == 0
+
+
 def test_owner_can_add_a_second_squad(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()

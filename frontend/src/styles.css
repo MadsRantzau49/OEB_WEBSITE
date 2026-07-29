@@ -134,6 +134,14 @@ p { color: var(--muted); line-height: 1.5; }
 .fine-list article p { margin: 4px 0; color: var(--muted); font-size: 13px; }
 .fine-list article small { color: var(--muted); }
 .fine-list article > strong { flex: none; color: var(--red); }
+.fine-editor { margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.fine-editor:last-child { margin-bottom: 0; }
+.fine-editor > summary, .rule-editor > summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 12px; list-style: none; cursor: pointer; }
+.fine-editor > summary::-webkit-details-marker, .rule-editor > summary::-webkit-details-marker { display: none; }
+.fine-editor > summary span, .fine-editor > summary small, .rule-editor > summary span, .rule-editor > summary small { display: block; }
+.fine-editor > summary small, .rule-editor > summary small { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.fine-editor > summary strong { flex: none; color: var(--red); }
+.fine-editor form, .rule-editor form { padding: 12px; border-top: 1px solid var(--line); background: var(--paper); }
 .payments-fold { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
 .payments-fold summary { cursor: pointer; font-weight: 750; }
 .empty-copy, .help-text { margin: 0; color: var(--muted); font-size: 13px; }
@@ -171,6 +179,11 @@ p { color: var(--muted); line-height: 1.5; }
 .upload input { display: none; }
 .admin-rows { margin: 8px 0 18px; }
 .admin-rows h4 { margin: 0 0 8px; }
+.rule-management { margin-bottom: 20px; }
+.rule-editor { margin-bottom: 7px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.rule-editor > summary strong { flex: none; font-size: 12px; }
+.new-rule-form { padding-top: 18px; border-top: 1px solid var(--line); }
+.new-rule-form > b { display: block; margin-bottom: 14px; }
 .mini-actions { display: flex; gap: 5px; }
 .mini-actions button, .assign-row button { min-height: 34px; border: 0; border-radius: 7px; padding: 7px 9px; background: var(--green); color: white; font-size: 11px; font-weight: 750; }
 .mini-actions button:last-child { background: var(--paper); color: var(--red); }

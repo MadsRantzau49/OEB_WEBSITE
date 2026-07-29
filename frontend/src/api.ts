@@ -14,6 +14,7 @@ const errorMessages: Record<string, string> = {
   owner_account_cannot_be_deleted: "Ejerkontoen kan ikke slettes.",
   select_at_least_one_valid_player: "Vælg mindst én spiller.",
   fine_rule_not_found: "Vælg en gyldig bøde.",
+  fine_charge_not_found: "Bøden findes ikke længere.",
   permission_denied: "Du har ikke rettighed til denne handling.",
   internal_server_error: "Der opstod en teknisk fejl. Prøv igen.",
 };

@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api, jsonBody } from "./api";
-import type { Dashboard, FineRequest, Match, Permission, PermissionUser, Transaction, User } from "./types";
+import type { Dashboard, FineRequest, Match, Permission, PermissionUser, Rule, Transaction, User } from "./types";
 
 const permissionLabels: Record<Permission, string> = {
   approve_fine_requests: "Godkend anmodninger",
@@ -13,6 +13,14 @@ const permissionLabels: Record<Permission, string> = {
   manage_permissions: "Rettigheder",
 };
 const permissionKeys = Object.keys(permissionLabels) as Permission[];
+const fineRuleTypes = [
+  { value: "TEAM_FINE", label: "Almindelig bøde" },
+  { value: "WIN_FINE", label: "Sejr" },
+  { value: "DRAW_FINE", label: "Uafgjort" },
+  { value: "LOSE_FINE", label: "Nederlag" },
+  { value: "SCORED_GOAL", label: "Mål scoret" },
+  { value: "CONCEDED_GOAL", label: "Mål indkasseret" },
+];
 type SyncReport = { createdMatches: number; updatedMatches: number; skippedMatches: number; deletedMatches?: number; errors: string[] };
 
 function can(user: User, squadId: number, permission: Permission) {
@@ -290,9 +298,42 @@ function DbuTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onErro
 }
 
 function RuleTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
-  const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [type, setType] = useState("TEAM_FINE");
-  async function submit(event: FormEvent) { event.preventDefault(); try { await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, amount, type, description: "" })); setName(""); setAmount(""); setType("TEAM_FINE"); onSaved(); } catch (reason) { onError(reason); } }
-  return <><div className="admin-rows">{dashboard.rules.map((rule) => <article key={rule.id}><div><b>{rule.name}</b><small>{rule.type}</small></div><strong>{money(rule.amount)}</strong></article>)}</div><form onSubmit={submit}><Field label="Navn" value={name} onChange={setName} required /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><Select label="Type" value={type} onChange={setType} options={[{ value: "TEAM_FINE", label: "Almindelig bøde" }, { value: "WIN_FINE", label: "Sejr" }, { value: "DRAW_FINE", label: "Uafgjort" }, { value: "LOSE_FINE", label: "Nederlag" }, { value: "SCORED_GOAL", label: "Mål scoret" }, { value: "CONCEDED_GOAL", label: "Mål indkasseret" }]} /><button className="save-button">Tilføj takst</button></form></>;
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [type, setType] = useState("TEAM_FINE");
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, description, amount, type }));
+      setName(""); setDescription(""); setAmount(""); setType("TEAM_FINE"); onSaved();
+    } catch (reason) { onError(reason); }
+  }
+  return <><div className="rule-management">{dashboard.rules.map((rule) => <RuleEditor key={`${rule.id}-${rule.name}-${rule.description}-${rule.amount}`} rule={rule} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{dashboard.rules.length === 0 && <p className="empty-copy">Ingen bødetakster endnu.</p>}</div><form className="new-rule-form" onSubmit={submit}><b>Tilføj ny takst</b><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><Select label="Type" value={type} onChange={setType} options={fineRuleTypes} /><button className="save-button">Tilføj takst</button></form></>;
+}
+
+function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
+  const [name, setName] = useState(rule.name);
+  const [description, setDescription] = useState(rule.description);
+  const [amount, setAmount] = useState(String(rule.amount));
+  const [busy, setBusy] = useState(false);
+  const typeLabel = fineRuleTypes.find((item) => item.value === rule.type)?.label || rule.type;
+  async function save(event: FormEvent) {
+    event.preventDefault(); setBusy(true);
+    try {
+      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ name, description, amount }) });
+      onSaved();
+    } catch (reason) { onError(reason); } finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`Slet bødetaksten "${rule.name}"? Allerede tildelte bøder bevares.`)) return;
+    setBusy(true);
+    try {
+      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "DELETE" });
+      onSaved();
+    } catch (reason) { onError(reason); setBusy(false); }
+  }
+  return <details className="rule-editor"><summary><span><b>{rule.name}</b><small>{typeLabel}{rule.description ? ` · ${rule.description}` : ""}</small></span><strong>{money(rule.amount)}</strong></summary><form onSubmit={save}><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><p className="help-text">Type: {typeLabel}</p><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bødetakst</button></form></details>;
 }
 
 function PermissionTool({ squadId, currentUser, onError }: { squadId: number; currentUser: User; onError: (reason: unknown) => void }) {
@@ -319,6 +360,10 @@ function NewSquad({ onError }: { onError: (reason: unknown) => void }) {
 
 function Field({ label, value, onChange, type = "text", hint, required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; required?: boolean }) {
   return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
+}
+
+function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="field"><span>{label}</span><textarea rows={3} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Select({ label, value, onChange, options, required = false }: { label: string; value: string; onChange: (value: string) => void; options: { value: string | number; label: string }[]; required?: boolean }) {
