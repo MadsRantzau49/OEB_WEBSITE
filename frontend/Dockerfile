@@ -1,5 +1,6 @@
 FROM node:20-alpine AS build
 
+ENV NODE_OPTIONS=--max-old-space-size=256
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

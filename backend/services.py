@@ -312,35 +312,35 @@ def sync_match(database_session, match, squad, client):
     match.last_synced_at = utc_now()
     match.sync_error = None
 
-    existing_participants = {
-        participant.source_name: participant
-        for participant in database_session.scalars(select(MatchParticipant).where(MatchParticipant.match_id == match.id))
-    }
-    squad_players = list(
-        database_session.scalars(select(Player).where(Player.squad_id == squad.id, Player.active.is_(True)))
-    )
+    lineup_locked = database_session.get(MatchLineupLock, match.id) is not None
     resolved = []
-    for source_name in data["lineup"]:
-        player = find_lineup_player(squad_players, source_name)
-        participant = existing_participants.get(source_name)
-        if participant is None:
-            participant = MatchParticipant(match_id=match.id, source_name=source_name)
-            database_session.add(participant)
-        participant.player_id = player.id if player else None
-        participant.status = "confirmed" if player else "unmatched"
-        resolved.append(participant)
+    if not lineup_locked:
+        existing_participants = {
+            participant.source_name: participant
+            for participant in database_session.scalars(select(MatchParticipant).where(MatchParticipant.match_id == match.id))
+        }
+        squad_players = list(
+            database_session.scalars(select(Player).where(Player.squad_id == squad.id, Player.active.is_(True)))
+        )
+        for source_name in data["lineup"]:
+            player = find_lineup_player(squad_players, source_name)
+            participant = existing_participants.get(source_name)
+            if participant is None:
+                participant = MatchParticipant(match_id=match.id, source_name=source_name)
+                database_session.add(participant)
+            participant.player_id = player.id if player else None
+            participant.status = "confirmed" if player else "unmatched"
+            resolved.append(participant)
 
-    # Only remove old lineup rows after DBU returned a valid lineup. A failed
-    # scrape must never erase the last known participants or their charges.
-    if data["lineup"]:
-        current_names = set(data["lineup"])
-        for participant in existing_participants.values():
-            if participant.source_name not in current_names:
-                database_session.delete(participant)
+        # Never erase the last known lineup after a failed or empty scrape.
+        if data["lineup"]:
+            current_names = set(data["lineup"])
+            for participant in existing_participants.values():
+                if participant.source_name not in current_names:
+                    database_session.delete(participant)
 
     database_session.flush()
 
-    lineup_locked = database_session.get(MatchLineupLock, match.id) is not None
     has_complete_result = match.home_score is not None and match.away_score is not None
     all_confirmed = bool(resolved) and all(participant.status == "confirmed" for participant in resolved)
     effective_players = effective_match_players(database_session, match)
@@ -364,12 +364,13 @@ def sync_match(database_session, match, squad, client):
     }
 
 
-def sync_squad(database_session, squad, timeout=20):
+def sync_squad(database_session, squad, timeout=20, season_id=None, full=False):
     client = DBUClient(timeout=timeout)
-    seasons = list(
-        database_session.scalars(select(Season).where(Season.squad_id == squad.id, Season.active.is_(True)))
-    )
-    report = {"squadId": squad.id, "seasons": [], "createdMatches": 0, "updatedMatches": 0, "errors": []}
+    season_query = select(Season).where(Season.squad_id == squad.id, Season.active.is_(True))
+    if season_id is not None:
+        season_query = season_query.where(Season.id == season_id)
+    seasons = list(database_session.scalars(season_query))
+    report = {"squadId": squad.id, "seasons": [], "createdMatches": 0, "updatedMatches": 0, "skippedMatches": 0, "errors": []}
     for season in seasons:
         season_report = {"seasonId": season.id, "matches": []}
         sources = list(
@@ -401,11 +402,32 @@ def sync_squad(database_session, squad, timeout=20):
                 database_session.flush()
                 report["createdMatches"] += 1
             else:
+                should_update = full or match.last_synced_at is None or match.home_score is None or match.away_score is None
+                if not should_update:
+                    report["skippedMatches"] += 1
+                    continue
                 report["updatedMatches"] += 1
             result = sync_match(database_session, match, squad, client)
             season_report["matches"].append(result)
         report["seasons"].append(season_report)
     database_session.flush()
+    return report
+
+
+def reset_dbu_matches(database_session, squad, season_id, timeout=20):
+    match_ids = list(
+        database_session.scalars(
+            select(Match.id).where(Match.season_id == season_id, Match.dbu_id.is_not(None))
+        )
+    )
+    if match_ids:
+        database_session.execute(
+            delete(FineCharge).where(FineCharge.match_id.in_(match_ids), FineCharge.source == "match")
+        )
+        database_session.execute(delete(Match).where(Match.id.in_(match_ids)))
+        database_session.flush()
+    report = sync_squad(database_session, squad, timeout=timeout, season_id=season_id, full=True)
+    report["deletedMatches"] = len(match_ids)
     return report
 
 

@@ -56,6 +56,7 @@ from .services import (
     parse_amount_input,
     process_mobilepay_import,
     rematch_mobilepay_transactions,
+    reset_dbu_matches,
     season_for_squad,
     set_match_lineup,
     sync_squad,
@@ -207,12 +208,19 @@ def fine_request_json(database_session, fine_request):
     }
 
 
-def dashboard_json(database_session, squad, season, include_matches=True):
+def dashboard_json(database_session, squad, season, include_matches=True, include_account_status=False):
     players = list(
         database_session.scalars(
             select(Player).where(Player.squad_id == squad.id, Player.active.is_(True)).order_by(Player.dbu_name)
         )
     )
+    account_player_ids = set()
+    if include_account_status:
+        account_player_ids = set(
+            database_session.scalars(
+                select(User.player_id).where(User.player_id.in_([player.id for player in players]))
+            )
+        )
     charges = list(
         database_session.scalars(
             select(FineCharge).where(FineCharge.squad_id == squad.id, FineCharge.season_id == season.id).order_by(FineCharge.charge_date.desc(), FineCharge.id.desc())
@@ -259,20 +267,27 @@ def dashboard_json(database_session, squad, season, include_matches=True):
     )
     player_payload = []
     for player in players:
-        player_payload.append(
-            {
-                **player_json(
-                    player,
-                    charges_by_player.get(player.id, 0),
-                    payments_by_player.get(player.id, 0),
-                    washes.get(player.id, 0),
-                ),
-                "fines": [charge_json(charge, player.dbu_name) for charge in charges_list_by_player.get(player.id, [])],
-                "payments": [transaction_json(transaction, player.dbu_name) for transaction in payments_list_by_player.get(player.id, [])],
-            }
-        )
+        payload = {
+            **player_json(
+                player,
+                charges_by_player.get(player.id, 0),
+                payments_by_player.get(player.id, 0),
+                washes.get(player.id, 0),
+            ),
+            "fines": [charge_json(charge, player.dbu_name) for charge in charges_list_by_player.get(player.id, [])],
+            "payments": [transaction_json(transaction, player.dbu_name) for transaction in payments_list_by_player.get(player.id, [])],
+        }
+        if include_account_status:
+            payload["hasAccount"] = player.id in account_player_ids
+        player_payload.append(payload)
 
-    matches = list(database_session.scalars(select(Match).where(Match.season_id == season.id).order_by(Match.match_date, Match.id))) if include_matches else []
+    matches = list(
+        database_session.scalars(
+            select(Match)
+            .where(Match.season_id == season.id)
+            .order_by(Match.match_date.is_(None), Match.match_date, Match.id)
+        )
+    ) if include_matches else []
     match_payload = []
     for match in matches:
         lineup_locked = database_session.get(MatchLineupLock, match.id) is not None
@@ -566,11 +581,20 @@ def authenticated_dashboard(squad_id):
     if season is None:
         return error("season_not_found", 404)
     user = load_current_user()
-    include_matches = user.is_owner or any(
+    can_manage_roster = has_permission(database_session, user, squad_id, "manage_roster")
+    include_matches = can_manage_roster or any(
         has_permission(database_session, user, squad_id, permission)
-        for permission in ("manage_matches", "manage_roster", "manage_dbu_sync")
+        for permission in ("manage_matches", "manage_dbu_sync")
     )
-    return jsonify(dashboard_json(database_session, squad, season, include_matches=include_matches))
+    return jsonify(
+        dashboard_json(
+            database_session,
+            squad,
+            season,
+            include_matches=include_matches,
+            include_account_status=can_manage_roster,
+        )
+    )
 
 
 @api.get("/squads/<int:squad_id>/fine-requests")
@@ -889,6 +913,26 @@ def update_player(squad_id, player_id):
     return jsonify({"player": player_json(player)})
 
 
+@api.delete("/squads/<int:squad_id>/players/<int:player_id>/account")
+@user_required
+def delete_player_account(squad_id, player_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_roster")
+    if permission:
+        return permission
+    player = database_session.scalar(select(Player).where(Player.id == player_id, Player.squad_id == squad_id))
+    if player is None:
+        return error("player_not_found", 404)
+    account = database_session.scalar(select(User).where(User.player_id == player.id))
+    if account is None:
+        return error("player_account_not_found", 404)
+    if account.is_owner:
+        return error("owner_account_cannot_be_deleted", 409)
+    database_session.delete(account)
+    database_session.commit()
+    return jsonify({"ok": True})
+
+
 @api.delete("/squads/<int:squad_id>/players/<int:player_id>")
 @user_required
 def delete_player(squad_id, player_id):
@@ -900,18 +944,9 @@ def delete_player(squad_id, player_id):
     if player is None:
         return error("player_not_found", 404)
 
-    has_account = database_session.scalar(select(User.id).where(User.player_id == player.id).limit(1)) is not None
-    has_payment = database_session.scalar(
-        select(MobilePayTransaction.id).where(MobilePayTransaction.allocated_player_id == player.id).limit(1)
-    ) is not None
-    has_non_match_fine = database_session.scalar(
-        select(FineCharge.id).where(FineCharge.player_id == player.id, FineCharge.source != "match").limit(1)
-    ) is not None
-    has_fine_request = database_session.scalar(
-        select(fine_request_recipients.c.request_id).where(fine_request_recipients.c.player_id == player.id).limit(1)
-    ) is not None
-    if has_account or has_payment or has_non_match_fine or has_fine_request:
-        return error("player_has_financial_history", 409)
+    account = database_session.scalar(select(User).where(User.player_id == player.id))
+    if account is not None and account.is_owner:
+        return error("owner_account_cannot_be_deleted", 409)
 
     participants = list(
         database_session.scalars(select(MatchParticipant).where(MatchParticipant.player_id == player.id))
@@ -922,23 +957,69 @@ def delete_player(squad_id, player_id):
             select(MatchLineupPlayer.match_id).where(MatchLineupPlayer.player_id == player.id)
         )
     )
+    affected_match_ids.update(
+        database_session.scalars(select(Match.id).where(Match.clothes_washer_id == player.id))
+    )
     for participant in participants:
         participant.player_id = None
         participant.status = "unmatched"
+    removed_fines = database_session.scalar(
+        select(func.count(FineCharge.id)).where(FineCharge.player_id == player.id)
+    ) or 0
     removed_match_fines = database_session.scalar(
         select(func.count(FineCharge.id)).where(FineCharge.player_id == player.id, FineCharge.source == "match")
     ) or 0
-    database_session.execute(
-        delete(FineCharge).where(FineCharge.player_id == player.id, FineCharge.source == "match")
+    fine_request_ids = list(
+        database_session.scalars(
+            select(fine_request_recipients.c.request_id).where(
+                fine_request_recipients.c.player_id == player.id
+            )
+        )
     )
+    database_session.execute(
+        delete(FineCharge).where(FineCharge.player_id == player.id)
+    )
+    database_session.execute(
+        delete(fine_request_recipients).where(fine_request_recipients.c.player_id == player.id)
+    )
+    orphaned_request_ids = [
+        request_id
+        for request_id in fine_request_ids
+        if database_session.scalar(
+            select(fine_request_recipients.c.request_id).where(
+                fine_request_recipients.c.request_id == request_id
+            ).limit(1)
+        ) is None
+    ]
+    if orphaned_request_ids:
+        database_session.execute(delete(FineRequest).where(FineRequest.id.in_(orphaned_request_ids)))
+    payments = list(
+        database_session.scalars(
+            select(MobilePayTransaction).where(MobilePayTransaction.allocated_player_id == player.id)
+        )
+    )
+    for payment in payments:
+        payment.allocated_player_id = None
+        payment.allocation_status = "unmatched"
     database_session.execute(delete(MatchLineupPlayer).where(MatchLineupPlayer.player_id == player.id))
     for match_id in affected_match_ids:
         match = database_session.get(Match, match_id)
         if match:
             match.status = "needs_review"
+    if account is not None:
+        database_session.delete(account)
     database_session.delete(player)
     database_session.commit()
-    return jsonify({"ok": True, "removedMatchFines": removed_match_fines})
+    return jsonify(
+        {
+            "ok": True,
+            "deletedAccount": account is not None,
+            "removedFines": removed_fines,
+            "removedFineRequests": len(orphaned_request_ids),
+            "removedMatchFines": removed_match_fines,
+            "unassignedPayments": len(payments),
+        }
+    )
 
 
 @api.post("/squads/<int:squad_id>/mobilepay-imports")
@@ -1303,7 +1384,31 @@ def sync_squad_api(squad_id):
     squad, squad_error = require_squad(database_session, squad_id)
     if squad_error:
         return squad_error
-    report = sync_squad(database_session, squad, timeout=20)
+    season_id = body().get("seasonId")
+    if season_id is not None:
+        season = season_for_squad(database_session, squad_id, season_id)
+        if season is None:
+            return error("season_not_found", 404)
+        season_id = season.id
+    report = sync_squad(database_session, squad, timeout=20, season_id=season_id)
+    database_session.commit()
+    return jsonify({"report": report})
+
+
+@api.post("/squads/<int:squad_id>/sync/reset")
+@user_required
+def reset_squad_dbu_api(squad_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_dbu_sync")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    season = season_for_squad(database_session, squad_id, body().get("seasonId"))
+    if season is None:
+        return error("season_not_found", 404)
+    report = reset_dbu_matches(database_session, squad, season.id, timeout=20)
     database_session.commit()
     return jsonify({"report": report})
 
@@ -1355,6 +1460,23 @@ def update_permissions(squad_id, user_id):
     )
     database_session.commit()
     return jsonify({"ok": True, "permissions": sorted(requested)})
+
+
+@api.delete("/users/<int:user_id>")
+@user_required
+def delete_user_account(user_id):
+    database_session = get_db()
+    actor = load_current_user()
+    if not actor.is_owner:
+        return error("permission_denied", 403)
+    user = database_session.get(User, user_id)
+    if user is None:
+        return error("user_not_found", 404)
+    if user.is_owner:
+        return error("owner_account_cannot_be_deleted", 409)
+    database_session.delete(user)
+    database_session.commit()
+    return jsonify({"ok": True})
 
 
 @api.post("/squads/<int:squad_id>/seasons")

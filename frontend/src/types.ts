@@ -71,6 +71,7 @@ export interface Player {
   dbuName: string;
   mobilePayName: string | null;
   active: boolean;
+  hasAccount?: boolean;
   totalFines: number;
   totalPaid: number;
   balance: number;

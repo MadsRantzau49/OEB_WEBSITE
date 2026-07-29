@@ -13,6 +13,7 @@ const permissionLabels: Record<Permission, string> = {
   manage_permissions: "Rettigheder",
 };
 const permissionKeys = Object.keys(permissionLabels) as Permission[];
+type SyncReport = { createdMatches: number; updatedMatches: number; skippedMatches: number; deletedMatches?: number; errors: string[] };
 
 function can(user: User, squadId: number, permission: Permission) {
   return user.isOwner || user.permissions.some((item) => item.squadId === squadId && item.permission === permission);
@@ -70,7 +71,7 @@ export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { 
         {allowed("manage_matches") && <Tool title="Kampe, spillere og vasker"><MatchTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_dbu_sync") && <Tool title="DBU-links"><DbuTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_fine_rules") && <Tool title="Bødetakster"><RuleTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
-        {allowed("manage_permissions") && <Tool title="Brugerrettigheder"><PermissionTool squadId={squadId} onError={onFailure} /></Tool>}
+        {allowed("manage_permissions") && <Tool title="Brugerrettigheder"><PermissionTool squadId={squadId} currentUser={user} onError={onFailure} /></Tool>}
         {user.isOwner && <Tool title="Nyt hold"><NewSquad onError={onFailure} /></Tool>}
       </div>
     </details>
@@ -180,12 +181,17 @@ function PlayerEditor({ player, squadId, onError, onSaved }: { player: Dashboard
     try { await api(`/squads/${squadId}/players/${player.id}`, { method: "PATCH", body: JSON.stringify({ dbuName, mobilePayName }) }); onSaved(); }
     catch (reason) { onError(reason); }
   }
-  async function remove() {
-    if (!window.confirm(`Slet ${player.name}? Spilleren kan kun slettes uden bruger, betalinger eller almindelige bøder.`)) return;
+  async function removeAccount() {
+    if (!player.hasAccount || !window.confirm(`Slet brugerlogin for ${player.name}? Brugernavn og adgangskode slettes. Spilleren, betalingerne og bøderne bevares, så en ny bruger kan vælge spilleren.`)) return;
+    try { await api(`/squads/${squadId}/players/${player.id}/account`, { method: "DELETE" }); onSaved(); }
+    catch (reason) { onError(reason); }
+  }
+  async function removePlayer() {
+    if (!window.confirm(`Slet ${player.name} helt? Spilleren, brugerlogin og alle bøder slettes permanent. Betalingerne bevares i regnskabet under "Mangler spiller".`)) return;
     try { await api(`/squads/${squadId}/players/${player.id}`, { method: "DELETE" }); onSaved(); }
     catch (reason) { onError(reason); }
   }
-  return <details className="player-editor"><summary><span>{player.name}<small>{player.mobilePayName || "Intet MobilePay-navn"}</small></span><b>{money(player.balance)}</b></summary><form onSubmit={save}><Field label="DBU-navn" value={dbuName} onChange={setDbuName} required /><Field label="MobilePay-navn" value={mobilePayName} onChange={setMobilePayName} /><button className="secondary-save">Gem spiller</button><button className="danger-button" type="button" onClick={() => void remove()}>Slet spiller</button></form></details>;
+  return <details className="player-editor"><summary><span>{player.name}<small>{player.mobilePayName || "Intet MobilePay-navn"}</small></span><b>{money(player.balance)}</b></summary><form onSubmit={save}><Field label="DBU-navn" value={dbuName} onChange={setDbuName} required /><Field label="MobilePay-navn" value={mobilePayName} onChange={setMobilePayName} /><button className="secondary-save">Gem spiller</button><div className="player-delete-options"><b>Sletning</b><p>Vælg om kun login eller hele spilleren skal fjernes.</p><button className="secondary-save" type="button" disabled={!player.hasAccount} onClick={() => void removeAccount()}>{player.hasAccount ? "Slet brugerlogin" : "Intet brugerlogin tilknyttet"}</button><small>Bevarer spilleren, betalinger og bøder.</small><button className="danger-button" type="button" onClick={() => void removePlayer()}>Slet spiller helt</button><small>Fjerner også bruger og bøder. Betalinger flyttes til “Mangler spiller”.</small></div></form></details>;
 }
 
 function MatchTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -241,13 +247,16 @@ function MatchEditor({ match, dashboard, onError, onSaved }: { match: Match; das
   }
   const lineupPlayers = lineup.map((playerId) => dashboard.players.find((player) => player.id === playerId)).filter(Boolean);
   const availablePlayers = dashboard.players.filter((player) => !lineup.includes(player.id));
-  return <details><summary><span>{match.homeClub || "Kamp"} {match.homeScore ?? "–"}-{match.awayScore ?? "–"} {match.awayClub || ""}<small>{dateLabel(match.date)}{!match.dbuId ? " · Manuel kamp" : ""}</small></span></summary><div className="match-editor-body"><label className="field"><span>Vasker</span><select value={washer} onChange={(event) => void saveWasher(event.target.value)}><option value="">Ikke valgt</option>{dashboard.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label><span className="field-title">Spillere i kampen</span><div className="lineup-edit-list">{lineupPlayers.map((player) => player && <div key={player.id}><span>{player.name}</span><button type="button" onClick={() => void saveLineup(lineup.filter((id) => id !== player.id))}>Fjern</button></div>)}</div><div className="add-lineup-player"><select value={addPlayerId} onChange={(event) => setAddPlayerId(event.target.value)}><option value="">Tilføj en anden spiller</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select><button type="button" disabled={!addPlayerId} onClick={() => { void saveLineup([...lineup, Number(addPlayerId)]); setAddPlayerId(""); }}>Tilføj</button></div>{match.lineupLocked && match.dbuId && <button className="text-danger" type="button" onClick={() => void resetLineup()}>Brug DBU-holdopstilling igen</button>}{!match.dbuId && <button className="danger-button" type="button" onClick={() => void removeMatch()}>Slet manuel kamp</button>}</div></details>;
+  const played = match.homeScore !== null && match.awayScore !== null;
+  return <details><summary><span>{match.homeClub || "Kamp"} {match.homeScore ?? "–"}-{match.awayScore ?? "–"} {match.awayClub || ""}<small>{dateLabel(match.date)}{!match.dbuId ? " · Manuel kamp" : ""}</small>{!played && <em className="match-state">{match.date ? "Ikke spillet endnu" : "Mangler kampdata"}</em>}</span></summary><div className="match-editor-body"><label className="field"><span>Vasker</span><select value={washer} onChange={(event) => void saveWasher(event.target.value)}><option value="">Ikke valgt</option>{dashboard.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label><span className="field-title">Spillere i kampen</span><div className="lineup-edit-list">{lineupPlayers.map((player) => player && <div key={player.id}><span>{player.name}</span><button type="button" onClick={() => void saveLineup(lineup.filter((id) => id !== player.id))}>Fjern</button></div>)}</div><div className="add-lineup-player"><select value={addPlayerId} onChange={(event) => setAddPlayerId(event.target.value)}><option value="">Tilføj en anden spiller</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select><button type="button" disabled={!addPlayerId} onClick={() => { void saveLineup([...lineup, Number(addPlayerId)]); setAddPlayerId(""); }}>Tilføj</button></div>{match.lineupLocked && match.dbuId && <button className="text-danger" type="button" onClick={() => void resetLineup()}>Brug DBU-holdopstilling igen</button>}{!match.dbuId && <button className="danger-button" type="button" onClick={() => void removeMatch()}>Slet manuel kamp</button>}</div></details>;
 }
 
 function DbuTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   async function add(event: FormEvent) {
     event.preventDefault();
     try { await api(`/squads/${dashboard.squad.id}/seasons/${dashboard.season.id}/dbu-sources`, jsonBody({ label, url })); setLabel(""); setUrl(""); onSaved(); }
@@ -258,12 +267,26 @@ function DbuTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onErro
     catch (reason) { onError(reason); }
   }
   async function sync() {
-    setSyncing(true);
-    try { await api(`/squads/${dashboard.squad.id}/sync`, { method: "POST" }); onSaved(); }
+    setSyncing(true); setSyncMessage("");
+    try {
+      const result = await api<{ report: SyncReport }>(`/squads/${dashboard.squad.id}/sync`, jsonBody({ seasonId: dashboard.season.id }));
+      setSyncMessage(result.report.errors.length ? `DBU-fejl: ${result.report.errors[0]}` : `${result.report.createdMatches} nye · ${result.report.updatedMatches} ufærdige opdateret · ${result.report.skippedMatches} færdige sprunget over`);
+      onSaved();
+    }
     catch (reason) { onError(reason); }
     finally { setSyncing(false); }
   }
-  return <><div className="admin-rows">{dashboard.dbuSources.map((source) => <article key={source.id}><div><b>{source.label}</b><small>{source.url}</small></div><button className="text-danger" onClick={() => void remove(source.id)}>Fjern</button></article>)}</div><form onSubmit={add}><Field label="Navn" hint="Fx Senior 2" value={label} onChange={setLabel} required /><Field label="DBU kampprogram-link" value={url} onChange={setUrl} required /><button className="save-button">Tilføj link</button></form><button className="secondary-save" onClick={() => void sync()} disabled={syncing}>{syncing ? "Opdaterer…" : "Opdater fra DBU nu"}</button></>;
+  async function reset() {
+    if (!window.confirm("Nulstil alle DBU-kampe i denne sæson? Kampbøder, vaskere og manuelle holdopstillinger for DBU-kampe slettes og bygges igen fra de nuværende links.")) return;
+    setResetting(true); setSyncMessage("");
+    try {
+      const result = await api<{ report: SyncReport }>(`/squads/${dashboard.squad.id}/sync/reset`, jsonBody({ seasonId: dashboard.season.id }));
+      setSyncMessage(result.report.errors.length ? `DBU-fejl: ${result.report.errors[0]}` : `${result.report.deletedMatches || 0} gamle DBU-kampe slettet · ${result.report.createdMatches} kampe hentet igen`);
+      onSaved();
+    } catch (reason) { onError(reason); }
+    finally { setResetting(false); }
+  }
+  return <><div className="admin-rows">{dashboard.dbuSources.map((source) => <article key={source.id}><div><b>{source.label}</b><small>{source.url}</small></div><button className="text-danger" onClick={() => void remove(source.id)}>Fjern</button></article>)}</div><form onSubmit={add}><Field label="Navn" hint="Fx Efterår 2026" value={label} onChange={setLabel} required /><Field label="DBU kampprogram-link" value={url} onChange={setUrl} required /><button className="save-button">Tilføj link</button></form><button className="secondary-save" type="button" onClick={() => void sync()} disabled={syncing || resetting}>{syncing ? "Opdaterer…" : "Opdater fra DBU nu"}</button><p className="help-text dbu-sync-help">Den normale opdatering tilføjer nye kampe og genbesøger kun ufærdige kampe. Låste holdopstillinger ændres ikke.</p><button className="danger-button" type="button" onClick={() => void reset()} disabled={syncing || resetting}>{resetting ? "Nulstiller…" : "Nulstil alle DBU-kampe"}</button>{syncMessage && <p className="save-confirmation">{syncMessage}</p>}</>;
 }
 
 function RuleTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -272,15 +295,20 @@ function RuleTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onErr
   return <><div className="admin-rows">{dashboard.rules.map((rule) => <article key={rule.id}><div><b>{rule.name}</b><small>{rule.type}</small></div><strong>{money(rule.amount)}</strong></article>)}</div><form onSubmit={submit}><Field label="Navn" value={name} onChange={setName} required /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><Select label="Type" value={type} onChange={setType} options={[{ value: "TEAM_FINE", label: "Almindelig bøde" }, { value: "WIN_FINE", label: "Sejr" }, { value: "DRAW_FINE", label: "Uafgjort" }, { value: "LOSE_FINE", label: "Nederlag" }, { value: "SCORED_GOAL", label: "Mål scoret" }, { value: "CONCEDED_GOAL", label: "Mål indkasseret" }]} /><button className="save-button">Tilføj takst</button></form></>;
 }
 
-function PermissionTool({ squadId, onError }: { squadId: number; onError: (reason: unknown) => void }) {
+function PermissionTool({ squadId, currentUser, onError }: { squadId: number; currentUser: User; onError: (reason: unknown) => void }) {
   const [users, setUsers] = useState<PermissionUser[]>([]); const [userId, setUserId] = useState(0); const [selected, setSelected] = useState<Permission[]>([]);
   async function load() { try { const result = await api<{ users: PermissionUser[] }>(`/squads/${squadId}/permissions`); setUsers(result.users); const current = result.users.find((item) => item.id === userId) || result.users[0]; if (current) { setUserId(current.id); setSelected(current.isOwner ? permissionKeys : current.permissions); } } catch (reason) { onError(reason); } }
   useEffect(() => { void load(); }, [squadId]);
   function choose(id: number) { const selectedUser = users.find((item) => item.id === id); setUserId(id); setSelected(selectedUser?.isOwner ? permissionKeys : selectedUser?.permissions || []); }
   function toggle(permission: Permission) { setSelected((current) => current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission]); }
   async function save() { try { await api(`/squads/${squadId}/permissions/${userId}`, { method: "PUT", body: JSON.stringify({ permissions: selected }) }); await load(); } catch (reason) { onError(reason); } }
+  async function removeAccount() {
+    if (!selectedUser || !window.confirm(`Slet brugerkontoen ${selectedUser.username}? Spilleren, bøderne og betalingerne bliver bevaret.`)) return;
+    try { await api(`/users/${selectedUser.id}`, { method: "DELETE" }); await load(); }
+    catch (reason) { onError(reason); }
+  }
   const selectedUser = users.find((item) => item.id === userId);
-  return <><Select label="Bruger" value={String(userId)} onChange={(value) => choose(Number(value))} options={users.map((item) => ({ value: item.id, label: `${item.username}${item.isOwner ? " · ejer" : ""}` }))} /><div className="checkbox-grid">{permissionKeys.map((permission) => <label key={permission}><input type="checkbox" disabled={selectedUser?.isOwner} checked={selected.includes(permission)} onChange={() => toggle(permission)} />{permissionLabels[permission]}</label>)}</div><button className="save-button" disabled={selectedUser?.isOwner} onClick={() => void save()}>Gem rettigheder</button></>;
+  return <><Select label="Bruger" value={String(userId)} onChange={(value) => choose(Number(value))} options={users.map((item) => ({ value: item.id, label: `${item.username}${item.isOwner ? " · ejer" : ""}` }))} /><div className="checkbox-grid">{permissionKeys.map((permission) => <label key={permission}><input type="checkbox" disabled={selectedUser?.isOwner} checked={selected.includes(permission)} onChange={() => toggle(permission)} />{permissionLabels[permission]}</label>)}</div><button className="save-button" disabled={selectedUser?.isOwner} onClick={() => void save()}>Gem rettigheder</button>{currentUser.isOwner && selectedUser && !selectedUser.isOwner && <button className="danger-button" type="button" onClick={() => void removeAccount()}>Slet brugerkonto</button>}</>;
 }
 
 function NewSquad({ onError }: { onError: (reason: unknown) => void }) {

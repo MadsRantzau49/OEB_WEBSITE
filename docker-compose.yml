@@ -64,6 +64,42 @@ services:
       db:
         condition: service_healthy
 
+  mobilepay-drive:
+    image: rclone/rclone:latest
+    profiles: ["google-drive"]
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - while true; do rclone copy "$${MOBILEPAY_DRIVE_REMOTE}" /inbox --include "*.xlsx"; sleep "$${MOBILEPAY_DRIVE_SYNC_SECONDS}"; done
+    environment:
+      MOBILEPAY_DRIVE_REMOTE: ${MOBILEPAY_DRIVE_REMOTE:-gdrive:MobilePay-Upload}
+      MOBILEPAY_DRIVE_SYNC_SECONDS: ${MOBILEPAY_DRIVE_SYNC_SECONDS:-60}
+    volumes:
+      - ./secrets/rclone.conf:/config/rclone/rclone.conf:ro
+      - mobilepay_inbox:/inbox
+
+  mobilepay-inbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    profiles: ["google-drive"]
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do python -m backend.mobilepay_inbox; sleep $${MOBILEPAY_INBOX_SCAN_SECONDS:-30}; done"]
+    environment:
+      AUTO_CREATE_SCHEMA: "0"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
+      MOBILEPAY_INBOX_PATH: /inbox
+      MOBILEPAY_INBOX_SCAN_SECONDS: ${MOBILEPAY_INBOX_SCAN_SECONDS:-30}
+      MOBILEPAY_INBOX_SQUAD_ID: ${MOBILEPAY_INBOX_SQUAD_ID:-1}
+    volumes:
+      - mobilepay_inbox:/inbox
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
   web:
     build:
       context: ./frontend
@@ -84,3 +120,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  mobilepay_inbox:

@@ -194,12 +194,18 @@ p { color: var(--muted); line-height: 1.5; }
 .player-editor > summary small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .player-editor > summary b { flex: none; font-size: 12px; }
 .player-editor form { padding: 12px; border-top: 1px solid var(--line); background: var(--paper); }
+.player-delete-options { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
+.player-delete-options > b { display: block; font-size: 13px; }
+.player-delete-options > p { margin: 4px 0 0; font-size: 12px; }
+.player-delete-options > small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .danger-button { width: 100%; min-height: 42px; margin-top: 9px; border: 1px solid #e2b3a8; border-radius: 9px; background: #fff4f1; color: var(--red); font-weight: 750; }
 .manual-match-form { margin-bottom: 18px; padding: 14px; border-radius: 11px; background: var(--paper); }
 .manual-match-form > b { display: block; margin-bottom: 4px; }
 .match-editors > details { margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .match-editors summary span, .match-editors summary small { display: block; }
 .match-editors summary small { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 500; }
+.match-state { display: inline-block; margin-top: 7px; border-radius: 999px; padding: 4px 7px; background: var(--lime); color: var(--ink); font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.dbu-sync-help { margin-top: 9px; }
 .match-editor-body { padding: 12px; border-top: 1px solid var(--line); }
 .text-danger { border: 0; background: none; color: var(--red); font-size: 12px; font-weight: 700; }
 .lineup-edit-list > div { display: flex; align-items: center; justify-content: space-between; min-height: 42px; border-bottom: 1px solid var(--line); }

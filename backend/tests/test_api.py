@@ -180,6 +180,70 @@ def test_owner_can_add_a_second_squad(tmp_path):
     assert len(client.get("/api/v1/public/squads").get_json()["squads"]) == 2
 
 
+def test_owner_can_delete_player_account_without_deleting_financial_data(tmp_path):
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json=setup_payload())
+    token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    player = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Account Player", "mobilePayName": "Account Player"},
+        headers={"X-CSRF-Token": token},
+    ).get_json()["player"]
+    charge = owner.post(
+        f"/api/v1/squads/{squad_id}/charges",
+        json={"playerId": player["id"], "title": "Bevares", "amount": 25},
+        headers={"X-CSRF-Token": token},
+    )
+    assert charge.status_code == 201
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Date", "Name", "Type", "Number", "Message", "Amount", "Currency", "Transaction type"])
+    sheet.append(["05/06/2026 20:21", "Account Player", "Shop", "123", "", 10, "DKK", "Pay in"])
+    file_data = BytesIO()
+    workbook.save(file_data)
+    imported = owner.post(
+        f"/api/v1/squads/{squad_id}/mobilepay-imports",
+        data={"file": (BytesIO(file_data.getvalue()), "account-player.xlsx")},
+        content_type="multipart/form-data",
+        headers={"X-CSRF-Token": token},
+    )
+    assert imported.status_code == 201
+    member = app.test_client()
+    registered = member.post(
+        "/api/v1/auth/register",
+        json={"username": "forgotten", "password": "", "playerId": player["id"]},
+    )
+    assert registered.status_code == 201
+    before = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["players"][0]
+    assert before["hasAccount"] is True
+    assert before["totalFines"] == 25
+    assert before["totalPaid"] == 10
+
+    deleted = owner.delete(
+        f"/api/v1/squads/{squad_id}/players/{player['id']}/account",
+        headers={"X-CSRF-Token": token},
+    )
+    assert deleted.status_code == 200
+    assert member.get("/api/v1/auth/me").status_code == 401
+    after = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["players"][0]
+    assert after["hasAccount"] is False
+    assert after["totalFines"] == 25
+    assert after["totalPaid"] == 10
+    replacement = app.test_client().post(
+        "/api/v1/auth/register",
+        json={"username": "forgotten", "password": "new", "playerId": player["id"]},
+    )
+    assert replacement.status_code == 201
+    owner_id = setup.get_json()["user"]["id"]
+    protected_owner = owner.delete(
+        f"/api/v1/users/{owner_id}",
+        headers={"X-CSRF-Token": token},
+    )
+    assert protected_owner.status_code == 409
+
+
 def test_empty_case_insensitive_password_and_username(tmp_path):
     app = make_app(tmp_path)
     owner = app.test_client()
@@ -368,6 +432,7 @@ def test_approver_fine_is_applied_immediately(tmp_path):
         headers={"X-CSRF-Token": token},
     )
     assert custom.status_code == 201
+    custom_request_id = custom.get_json()["request"]["id"]
     assert custom.get_json()["request"]["status"] == "approved"
     dashboard = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
     assert dashboard["players"][0]["totalFines"] == 42
@@ -403,6 +468,8 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
         assert response.status_code == 201
 
     class FakeDBUClient:
+        fetch_calls = 0
+
         def __init__(self, **_kwargs):
             pass
 
@@ -412,6 +479,7 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
         def fetch_match(self, _match_id, _club_name):
             from datetime import datetime
 
+            FakeDBUClient.fetch_calls += 1
             return {
                 "dbu_id": "match-1",
                 "home_club": "Club",
@@ -451,6 +519,8 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
         second_report = sync_squad(database_session, squad)
         database_session.commit()
     assert sum(item["chargesCreated"] for season in second_report["seasons"] for item in season["matches"]) == 0
+    assert second_report["skippedMatches"] == 1
+    assert FakeDBUClient.fetch_calls == 1
 
     corrected = owner.put(
         f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
@@ -471,6 +541,69 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
     assert dashboard["matches"][0]["lineupLocked"] is True
     assert dashboard["matches"][0]["participants"][0]["playerName"] == "P1"
     assert dashboard["matches"][0]["washerName"] == "P2"
+
+    incremental = owner.post(
+        f"/api/v1/squads/{squad_id}/sync",
+        json={"seasonId": setup.get_json()["squad"]["currentSeason"]["id"]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert incremental.status_code == 200
+    assert incremental.get_json()["report"]["skippedMatches"] == 1
+    assert FakeDBUClient.fetch_calls == 1
+    still_locked = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["matches"][0]
+    assert still_locked["lineupLocked"] is True
+    assert [item["playerName"] for item in still_locked["participants"]] == ["P1"]
+
+    reset = owner.post(
+        f"/api/v1/squads/{squad_id}/sync/reset",
+        json={"seasonId": setup.get_json()["squad"]["currentSeason"]["id"]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert reset.status_code == 200
+    assert reset.get_json()["report"]["deletedMatches"] == 1
+    assert reset.get_json()["report"]["createdMatches"] == 1
+    assert FakeDBUClient.fetch_calls == 2
+    rebuilt = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["matches"][0]
+    assert rebuilt["lineupLocked"] is False
+    assert rebuilt["washerId"] is None
+    assert len(rebuilt["participants"]) == 3
+
+
+def test_future_dbu_matches_are_visible_and_sorted(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json={**setup_payload(), "dbuClubName": "Club"})
+    squad_id = setup.get_json()["squad"]["id"]
+
+    class FutureDBUClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def list_season_match_ids(self, _season_url):
+            return ["late", "early"]
+
+        def fetch_match(self, match_id, _club_name):
+            return {
+                "dbu_id": match_id,
+                "home_club": "CLUB",
+                "away_club": match_id.upper(),
+                "home_score": None,
+                "away_score": None,
+                "match_date": datetime(2026, 9 if match_id == "late" else 8, 1, 19, 0),
+                "lineup": [],
+            }
+
+    monkeypatch.setattr("backend.services.DBUClient", FutureDBUClient)
+    with app.app_context():
+        database_session = get_db()
+        report = sync_squad(database_session, database_session.get(Squad, squad_id))
+        database_session.commit()
+    assert report["createdMatches"] == 2
+    matches = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["matches"]
+    assert [item["dbuId"] for item in matches] == ["early", "late"]
+    assert all(item["homeScore"] is None and item["awayScore"] is None for item in matches)
 
 
 def test_manual_match_and_player_deletion_rules(tmp_path):
@@ -545,9 +678,44 @@ def test_manual_match_and_player_deletion_rules(tmp_path):
         headers={"X-CSRF-Token": token},
     )
     assert custom.status_code == 201
-    blocked = owner.delete(
+    member = app.test_client()
+    assert member.post(
+        "/api/v1/auth/register",
+        json={"username": "leaving-player", "password": "", "playerId": protected["id"]},
+    ).status_code == 201
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Date", "Name", "Type", "Number", "Message", "Amount", "Currency", "Transaction type"])
+    sheet.append(["05/06/2026 20:21", "Protected Player", "Shop", "456", "", 10, "DKK", "Pay in"])
+    file_data = BytesIO()
+    workbook.save(file_data)
+    imported = owner.post(
+        f"/api/v1/squads/{squad_id}/mobilepay-imports",
+        data={"file": (BytesIO(file_data.getvalue()), "protected-player.xlsx")},
+        content_type="multipart/form-data",
+        headers={"X-CSRF-Token": token},
+    )
+    assert imported.status_code == 201
+
+    removed = owner.delete(
         f"/api/v1/squads/{squad_id}/players/{protected['id']}",
         headers={"X-CSRF-Token": token},
     )
-    assert blocked.status_code == 409
-    assert blocked.get_json()["error"] == "player_has_financial_history"
+    assert removed.status_code == 200
+    assert removed.get_json()["deletedAccount"] is True
+    assert removed.get_json()["removedFines"] == 1
+    assert removed.get_json()["removedFineRequests"] == 1
+    assert removed.get_json()["unassignedPayments"] == 1
+    assert member.get("/api/v1/auth/me").status_code == 401
+    dashboard = app.test_client().get("/api/v1/public/squads/serie-1/dashboard").get_json()
+    assert all(item["id"] != protected["id"] for item in dashboard["players"])
+    assert dashboard["balanceSummary"]["boxBalance"] == 10
+    transactions = owner.get(f"/api/v1/squads/{squad_id}/transactions").get_json()["transactions"]
+    payment = next(item for item in transactions if item["name"] == "Protected Player")
+    assert payment["allocatedPlayerId"] is None
+    assert payment["allocationStatus"] == "unmatched"
+    fine_requests = owner.get(f"/api/v1/squads/{squad_id}/fine-requests").get_json()["requests"]
+    assert all(item["id"] != custom_request_id for item in fine_requests)
+    with app.app_context():
+        assert get_db().get(Player, protected["id"]) is None
+        assert get_db().query(FineCharge).filter(FineCharge.player_id == protected["id"]).count() == 0

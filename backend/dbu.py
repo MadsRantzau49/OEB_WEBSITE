@@ -43,6 +43,13 @@ class DBUClient:
                 result.append(match_id)
                 seen.add(match_id)
 
+        # Future fixtures use clickable rows instead of anchor tags.
+        for row in soup.select('tr[onclick*="/resultater/kamp/"]'):
+            match_id = self.normalize_match_id(row.get("onclick"))
+            if match_id and match_id not in seen:
+                result.append(match_id)
+                seen.add(match_id)
+
         if result:
             return result
 
@@ -117,7 +124,7 @@ class DBUClient:
         classes.append("home-team" if is_home else "away-team")
         table = soup.find("table", class_=lambda value: value and all(item in value for item in classes))
         if not table:
-            raise DBUParseError("DBU lineup was not found")
+            return []
 
         names = [span.get_text(" ", strip=True) for span in table.select("span")]
         names = [name for name in names if name]
@@ -126,7 +133,7 @@ class DBUClient:
 
     def _match_date(self, soup):
         candidates = []
-        for selector in ["time", ".date", ".match-date", ".sr--match--date"]:
+        for selector in [".date-time", "time", ".date", ".match-date", ".sr--match--date"]:
             candidates.extend(node.get("datetime") or node.get_text(" ", strip=True) for node in soup.select(selector))
         for value in candidates:
             parsed = self._parse_date(value)

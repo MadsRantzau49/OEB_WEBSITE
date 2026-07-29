@@ -12,5 +12,6 @@ Controllers
 Tests
 static
 templates
+secrets
 __pycache__
 *.pyc

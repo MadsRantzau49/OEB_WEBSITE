@@ -166,9 +166,48 @@ Upload the latest `.xlsx` export under `Administration -> MobilePay`. Existing t
 
 If players are added or their MobilePay names change after an upload, use `Tjek spillernavne igen`. It rematches only unassigned incoming payments and does not replace existing or manual assignments.
 
-### Can the Box update automatically?
+### Automatic Google Drive import
 
-MobilePay does not provide a public transaction API for a private MobilePay Box. The available Vipps MobilePay APIs are business products and do not expose Box `1783QN`. Therefore the safe Box workflow is still uploading the `.xlsx` export.
+MobilePay does not provide a public transaction API for a private MobilePay Box. The available Vipps MobilePay APIs are business products and do not expose Box `1783QN`. The optional Google Drive worker removes the manual download/upload steps instead:
+
+```text
+MobilePay on Android -> Share export to Drive -> server imports XLSX automatically
+```
+
+One-time setup:
+
+1. Create a Google Drive folder named `MobilePay-Upload`.
+2. Run this from the project directory:
+
+```bash
+docker run --rm -it \
+  -v "$PWD/secrets:/config/rclone" \
+  rclone/rclone:latest config
+```
+
+3. Create a Drive remote named `gdrive` and complete the Google authorization shown by rclone.
+4. Add these settings to `.env`:
+
+```text
+MOBILEPAY_DRIVE_REMOTE=gdrive:MobilePay-Upload
+MOBILEPAY_DRIVE_SYNC_SECONDS=60
+MOBILEPAY_INBOX_SCAN_SECONDS=30
+MOBILEPAY_INBOX_SQUAD_ID=1
+```
+
+5. Start the optional workers:
+
+```bash
+docker-compose --profile google-drive up -d --build
+```
+
+On Android, export from MobilePay and choose `Drive -> MobilePay-Upload`. The server checks Drive every minute and imports new `.xlsx` files once. Existing import hashes and transaction fingerprints prevent repeat imports.
+
+Check the automation with:
+
+```bash
+docker-compose logs -f mobilepay-drive mobilepay-inbox
+```
 
 If the club later changes to a MobilePay business agreement, the backend can be connected to the official business API, but that requires business credentials and is a different payment product.
 
@@ -184,7 +223,9 @@ The automatic worker:
 4. Leaves unknown names for manual approval instead of creating players automatically.
 5. Creates match fines only when the data is complete.
 
-The `dbu-cron` container runs once when it starts and then repeats after `DBU_SYNC_SECONDS` (900 seconds / 15 minutes by default). `Administration -> DBU-links -> Opdater fra DBU nu` starts the same synchronization immediately when you do not want to wait.
+The `dbu-cron` container runs once when it starts and then repeats after `DBU_SYNC_SECONDS` (900 seconds / 15 minutes by default). `Administration -> DBU-links -> Opdater fra DBU nu` starts the same incremental synchronization immediately. It adds new fixtures, revisits unfinished fixtures, skips completed matches, and never replaces a manually locked lineup.
+
+`Nulstil alle DBU-kampe` is intentionally destructive. It removes DBU matches, generated match fines, washers, and corrected DBU lineups for the selected season, then rebuilds them from the links that are currently configured. Manual friendly matches and non-match financial data are retained.
 
 An administrator can open `Administration -> Kampe, spillere og vasker` to:
 
@@ -193,7 +234,7 @@ An administrator can open `Administration -> Kampe, spillere og vasker` to:
 - Restore the original DBU lineup.
 - Add and delete manual training or friendly matches that are not on DBU.
 
-Under `Administration -> Spillere`, administrators can add players manually, map names found on DBU, edit DBU/MobilePay names, and delete players without a user, payment, or ordinary fine. Match-generated fines are removed when an unwanted DBU player is deleted.
+Under `Administration -> Spillere`, administrators can add players manually, map names found on DBU, and edit DBU/MobilePay names. They can delete only a player's login while preserving the player and all financial data, or delete the player completely. Complete deletion removes the account and all fines; existing MobilePay rows are retained as `Mangler spiller` so the Box balance remains correct.
 
 Manual lineup corrections remain in place during later DBU updates.
 
