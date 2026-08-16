@@ -538,6 +538,8 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
 
     class FakeDBUClient:
         fetch_calls = 0
+        home_score = 2
+        away_score = 1
 
         def __init__(self, **_kwargs):
             pass
@@ -553,10 +555,10 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
                 "dbu_id": "match-1",
                 "home_club": "Club",
                 "away_club": "Visitors",
-                "home_score": 2,
-                "away_score": 1,
+                "home_score": FakeDBUClient.home_score,
+                "away_score": FakeDBUClient.away_score,
                 "match_date": datetime(2026, 6, 5, 20, 21),
-                "lineup": ["P1", "P2", "P3 Auto"],
+                "lineup": ["P1", "P2", "P3 Auto", "P4 Auto"],
             }
 
     monkeypatch.setattr("backend.services.DBUClient", FakeDBUClient)
@@ -566,14 +568,50 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
         first_report = sync_squad(database_session, squad)
         database_session.commit()
         rules = database_session.query(FineRule).count()
-        match_id = database_session.query(Match.id).scalar()
+        match = database_session.query(Match).one()
+        match_id = match.id
         player_count = database_session.query(Player).count()
-        unmatched = database_session.query(MatchParticipant).filter(MatchParticipant.status == "unmatched").one()
+        unmatched = database_session.query(MatchParticipant).filter(
+            MatchParticipant.status == "unmatched"
+        ).order_by(MatchParticipant.source_name).all()
+        initial_charges = database_session.query(FineCharge).filter(FineCharge.match_id == match_id).order_by(FineCharge.player_id).all()
     assert first_report["createdMatches"] == 1
-    assert sum(item["chargesCreated"] for season in first_report["seasons"] for item in season["matches"]) == 0
+    assert sum(item["chargesCreated"] for season in first_report["seasons"] for item in season["matches"]) == 2
     assert player_count == 2
-    assert unmatched.source_name == "P3 Auto"
+    assert [participant.source_name for participant in unmatched] == ["P3 Auto", "P4 Auto"]
     assert rules == 3
+    assert match.status == "needs_review"
+    assert [(charge.player_id, charge.amount_cents) for charge in initial_charges] == [
+        (player_ids[0], 3200),
+        (player_ids[1], 3200),
+    ]
+
+    with app.app_context():
+        database_session = get_db()
+        retry_report = sync_squad(database_session, database_session.get(Squad, squad_id))
+        database_session.commit()
+        retried_charges = database_session.query(FineCharge).filter(FineCharge.match_id == match_id).all()
+    assert retry_report["updatedMatches"] == 1
+    assert sum(item["chargesCreated"] for season in retry_report["seasons"] for item in season["matches"]) == 0
+    assert sum(item["chargesUpdated"] for season in retry_report["seasons"] for item in season["matches"]) == 0
+    assert len(retried_charges) == 2
+    assert FakeDBUClient.fetch_calls == 2
+
+    locked = owner.put(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
+        json={"playerIds": [player_ids[0]]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert locked.status_code == 200
+    restored_dbu_lineup = owner.delete(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
+        headers={"X-CSRF-Token": token},
+    )
+    assert restored_dbu_lineup.status_code == 200
+    with app.app_context():
+        database_session = get_db()
+        assert database_session.get(Match, match_id).status == "needs_review"
+        assert database_session.query(FineCharge).filter(FineCharge.match_id == match_id).count() == 2
 
     created_player = owner.post(
         f"/api/v1/squads/{squad_id}/players",
@@ -584,12 +622,23 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
     with app.app_context():
         database_session = get_db()
         assert database_session.query(FineCharge).filter(FineCharge.match_id == match_id).count() == 3
+        assert database_session.get(Match, match_id).status == "needs_review"
+
+    created_last_player = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "P4 Auto"},
+        headers={"X-CSRF-Token": token},
+    )
+    assert created_last_player.status_code == 201
+    with app.app_context():
+        database_session = get_db()
+        assert database_session.query(FineCharge).filter(FineCharge.match_id == match_id).count() == 4
         squad = database_session.get(Squad, squad_id)
-        second_report = sync_squad(database_session, squad)
+        completed_report = sync_squad(database_session, squad)
         database_session.commit()
-    assert sum(item["chargesCreated"] for season in second_report["seasons"] for item in season["matches"]) == 0
-    assert second_report["skippedMatches"] == 1
-    assert FakeDBUClient.fetch_calls == 1
+    assert sum(item["chargesCreated"] for season in completed_report["seasons"] for item in season["matches"]) == 0
+    assert completed_report["skippedMatches"] == 1
+    assert FakeDBUClient.fetch_calls == 2
 
     corrected = owner.put(
         f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
@@ -597,6 +646,28 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
         headers={"X-CSRF-Token": token},
     )
     assert corrected.status_code == 200
+    assert corrected.get_json()["report"] == {"created": 0, "updated": 0, "removed": 3}
+    expanded = owner.put(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
+        json={"playerIds": player_ids},
+        headers={"X-CSRF-Token": token},
+    )
+    assert expanded.status_code == 200
+    assert expanded.get_json()["report"] == {"created": 1, "updated": 0, "removed": 0}
+    switched = owner.put(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
+        json={"playerIds": [player_ids[1]]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert switched.status_code == 200
+    assert switched.get_json()["report"] == {"created": 0, "updated": 0, "removed": 1}
+    restored = owner.put(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/lineup",
+        json={"playerIds": [player_ids[0]]},
+        headers={"X-CSRF-Token": token},
+    )
+    assert restored.status_code == 200
+    assert restored.get_json()["report"] == {"created": 1, "updated": 0, "removed": 1}
     washer = owner.put(
         f"/api/v1/squads/{squad_id}/matches/{match_id}/washer",
         json={"playerId": player_ids[1]},
@@ -618,7 +689,7 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
     )
     assert incremental.status_code == 200
     assert incremental.get_json()["report"]["skippedMatches"] == 1
-    assert FakeDBUClient.fetch_calls == 1
+    assert FakeDBUClient.fetch_calls == 2
     still_locked = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["matches"][0]
     assert still_locked["lineupLocked"] is True
     assert [item["playerName"] for item in still_locked["participants"]] == ["P1"]
@@ -631,11 +702,81 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
     assert reset.status_code == 200
     assert reset.get_json()["report"]["deletedMatches"] == 1
     assert reset.get_json()["report"]["createdMatches"] == 1
-    assert FakeDBUClient.fetch_calls == 2
+    assert FakeDBUClient.fetch_calls == 3
     rebuilt = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()["matches"][0]
+    rebuilt_match_id = rebuilt["id"]
     assert rebuilt["lineupLocked"] is False
     assert rebuilt["washerId"] is None
-    assert len(rebuilt["participants"]) == 3
+    assert len(rebuilt["participants"]) == 4
+
+    FakeDBUClient.home_score = None
+    FakeDBUClient.away_score = None
+    with app.app_context():
+        database_session = get_db()
+        no_result_report = sync_squad(database_session, database_session.get(Squad, squad_id), full=True)
+        database_session.commit()
+        assert database_session.get(Match, rebuilt_match_id).status == "needs_review"
+        assert database_session.query(FineCharge).filter(FineCharge.source == "match").count() == 0
+    assert sum(item["chargesRemoved"] for season in no_result_report["seasons"] for item in season["matches"]) == 4
+
+
+def test_match_charges_include_result_and_goal_rules_for_every_player(tmp_path):
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json={**setup_payload(), "dbuClubName": "Club"})
+    token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    season_id = setup.get_json()["squad"]["currentSeason"]["id"]
+    player_ids = []
+    for name in ("P1", "P2"):
+        response = owner.post(
+            f"/api/v1/squads/{squad_id}/players",
+            json={"dbuName": name},
+            headers={"X-CSRF-Token": token},
+        )
+        player_ids.append(response.get_json()["player"]["id"])
+
+    for rule_type, amount in (
+        ("WIN_FINE", 10),
+        ("DRAW_FINE", 20),
+        ("LOSE_FINE", 30),
+        ("SCORED_GOAL", 2),
+        ("CONCEDED_GOAL", 5),
+    ):
+        response = owner.post(
+            f"/api/v1/squads/{squad_id}/fine-rules",
+            json={"name": rule_type, "type": rule_type, "amount": amount},
+            headers={"X-CSRF-Token": token},
+        )
+        assert response.status_code == 201
+
+    scenarios = (
+        ("Club", "Visitors", 3, 1, 2100),
+        ("Visitors", "Club", 2, 2, 3400),
+        ("Club", "Visitors", 1, 4, 5200),
+    )
+    for index, (home_club, away_club, home_score, away_score, expected_cents) in enumerate(scenarios, start=1):
+        response = owner.post(
+            f"/api/v1/squads/{squad_id}/matches",
+            json={
+                "seasonId": season_id,
+                "date": f"2026-07-{index:02d}T14:00",
+                "homeClub": home_club,
+                "awayClub": away_club,
+                "homeScore": home_score,
+                "awayScore": away_score,
+                "playerIds": player_ids,
+            },
+            headers={"X-CSRF-Token": token},
+        )
+        assert response.status_code == 201
+        match_id = response.get_json()["match"]["id"]
+        with app.app_context():
+            charges = get_db().query(FineCharge).filter(FineCharge.match_id == match_id).order_by(FineCharge.player_id).all()
+            assert [(charge.player_id, charge.amount_cents) for charge in charges] == [
+                (player_ids[0], expected_cents),
+                (player_ids[1], expected_cents),
+            ]
 
 
 def test_future_dbu_matches_are_visible_and_sorted(tmp_path, monkeypatch):
