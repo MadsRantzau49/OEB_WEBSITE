@@ -221,7 +221,7 @@ The automatic worker:
 2. Reads score and lineup.
 3. Matches DBU names to players already created by an administrator.
 4. Leaves unknown names for manual approval instead of creating players automatically.
-5. Creates match fines only when the data is complete.
+5. Creates match fines for every confirmed player as soon as the result is available. Unknown DBU names receive the same fine when an administrator adds them as players.
 
 The `dbu-cron` container runs once when it starts and then repeats after `DBU_SYNC_SECONDS` (900 seconds / 15 minutes by default). `Administration -> DBU-links -> Opdater fra DBU nu` starts the same incremental synchronization immediately. It adds new fixtures, revisits unfinished fixtures, skips completed matches, and never replaces a manually locked lineup.
 

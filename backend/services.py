@@ -143,6 +143,12 @@ def effective_match_players(database_session, match):
 def reconcile_match_charges(database_session, match, squad):
     """Make generated match charges exactly match the effective lineup and score."""
     players = effective_match_players(database_session, match)
+    has_unmatched = database_session.get(MatchLineupLock, match.id) is None and database_session.scalar(
+        select(MatchParticipant.id).where(
+            MatchParticipant.match_id == match.id,
+            MatchParticipant.status != "confirmed",
+        ).limit(1)
+    ) is not None
     existing = list(
         database_session.scalars(
             select(FineCharge).where(FineCharge.match_id == match.id, FineCharge.source == "match")
@@ -155,8 +161,11 @@ def reconcile_match_charges(database_session, match, squad):
         database_session.flush()
         return {"created": 0, "updated": 0, "removed": len(existing)}
     if match.home_score is None or match.away_score is None:
+        for charge in existing:
+            database_session.delete(charge)
         match.status = "needs_review"
-        return {"created": 0, "updated": 0, "removed": 0}
+        database_session.flush()
+        return {"created": 0, "updated": 0, "removed": len(existing)}
 
     rules = list(database_session.scalars(select(FineRule).where(FineRule.squad_id == squad.id)))
     amount_cents = calculate_match_charge(rules, match, squad)
@@ -167,7 +176,7 @@ def reconcile_match_charges(database_session, match, squad):
     if amount_cents <= 0:
         for charge in existing:
             database_session.delete(charge)
-        match.status = "complete"
+        match.status = "needs_review" if has_unmatched else "complete"
         match.sync_error = None
         database_session.flush()
         return {"created": 0, "updated": 0, "removed": len(existing)}
@@ -190,11 +199,17 @@ def reconcile_match_charges(database_session, match, squad):
     for player in players:
         charge = existing_by_player.get(player.id)
         if charge:
-            charge.title = title
-            charge.description = description
-            charge.amount_cents = amount_cents
-            charge.charge_date = charge_date
-            updated += 1
+            if (
+                charge.title != title
+                or charge.description != description
+                or charge.amount_cents != amount_cents
+                or charge.charge_date != charge_date
+            ):
+                charge.title = title
+                charge.description = description
+                charge.amount_cents = amount_cents
+                charge.charge_date = charge_date
+                updated += 1
         else:
             create_fine_charge(
                 database_session,
@@ -210,7 +225,7 @@ def reconcile_match_charges(database_session, match, squad):
                 charge_date=charge_date,
             )
             created += 1
-    match.status = "complete"
+    match.status = "needs_review" if has_unmatched else "complete"
     match.sync_error = None
     database_session.flush()
     return {"created": created, "updated": updated, "removed": removed}
@@ -281,14 +296,8 @@ def map_player_to_existing_lineups(database_session, player, squad):
     database_session.flush()
     for match_id in affected_match_ids:
         match = database_session.get(Match, match_id)
-        has_unmatched = database_session.scalar(
-            select(MatchParticipant.id).where(
-                MatchParticipant.match_id == match_id,
-                MatchParticipant.status != "confirmed",
-            ).limit(1)
-        ) is not None
-        if not has_unmatched:
-            reconcile_match_charges(database_session, match, squad)
+        reconcile_match_charges(database_session, match, squad)
+    database_session.flush()
     return len(affected_match_ids)
 
 
@@ -341,27 +350,23 @@ def sync_match(database_session, match, squad, client):
 
     database_session.flush()
 
+    unresolved = [participant.source_name for participant in resolved if participant.status != "confirmed"]
+    lineup_needs_review = not lineup_locked and (not resolved or bool(unresolved))
     has_complete_result = match.home_score is not None and match.away_score is not None
-    all_confirmed = bool(resolved) and all(participant.status == "confirmed" for participant in resolved)
-    effective_players = effective_match_players(database_session, match)
-    if not has_complete_result or not effective_players or (not lineup_locked and not all_confirmed):
+    result = reconcile_match_charges(database_session, match, squad)
+    if not has_complete_result or lineup_needs_review:
         match.status = "needs_review"
         database_session.flush()
-        return {
-            "matchId": match.id,
-            "status": "needs_review",
-            "unresolved": [participant.source_name for participant in resolved if participant.status != "confirmed"],
-            "chargesCreated": 0,
-        }
-
-    result = reconcile_match_charges(database_session, match, squad)
-    return {
+    report = {
         "matchId": match.id,
         "status": match.status,
         "chargesCreated": result["created"],
         "chargesUpdated": result["updated"],
         "chargesRemoved": result["removed"],
     }
+    if not has_complete_result or lineup_needs_review:
+        report["unresolved"] = unresolved
+    return report
 
 
 def sync_squad(database_session, squad, timeout=20, season_id=None, full=False):
@@ -402,7 +407,13 @@ def sync_squad(database_session, squad, timeout=20, season_id=None, full=False):
                 database_session.flush()
                 report["createdMatches"] += 1
             else:
-                should_update = full or match.last_synced_at is None or match.home_score is None or match.away_score is None
+                should_update = (
+                    full
+                    or match.status != "complete"
+                    or match.last_synced_at is None
+                    or match.home_score is None
+                    or match.away_score is None
+                )
                 if not should_update:
                     report["skippedMatches"] += 1
                     continue
