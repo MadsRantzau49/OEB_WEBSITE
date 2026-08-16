@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timezone
 import re
 from urllib.parse import urlparse
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import and_, delete, func, or_, select
 
 from .db import get_db
@@ -55,6 +55,7 @@ from .services import (
     map_player_to_existing_lineups,
     parse_amount_input,
     process_mobilepay_import,
+    refresh_match,
     rematch_mobilepay_transactions,
     reset_dbu_matches,
     season_for_squad,
@@ -1439,6 +1440,29 @@ def update_match_washer(squad_id, match_id):
         match.clothes_washer_id = player.id
     database_session.commit()
     return jsonify({"ok": True, "washerId": match.clothes_washer_id})
+
+
+@api.post("/squads/<int:squad_id>/matches/<int:match_id>/refresh")
+@user_required
+def refresh_match_api(squad_id, match_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_matches")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    match, match_error = require_match(database_session, squad_id, match_id)
+    if match_error:
+        return match_error
+    report = refresh_match(
+        database_session,
+        match,
+        squad,
+        timeout=current_app.config.get("DBU_REQUEST_TIMEOUT", 20),
+    )
+    database_session.commit()
+    return jsonify({"report": report})
 
 
 @api.post("/squads/<int:squad_id>/sync")

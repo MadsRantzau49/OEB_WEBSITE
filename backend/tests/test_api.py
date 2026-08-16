@@ -681,6 +681,7 @@ def test_dbu_sync_creates_idempotent_match_charges(tmp_path, monkeypatch):
     assert dashboard["matches"][0]["lineupLocked"] is True
     assert dashboard["matches"][0]["participants"][0]["playerName"] == "P1"
     assert dashboard["matches"][0]["washerName"] == "P2"
+    assert {player["name"]: player["washes"] for player in dashboard["players"]}["P2"] == 1
 
     incremental = owner.post(
         f"/api/v1/squads/{squad_id}/sync",
@@ -777,6 +778,78 @@ def test_match_charges_include_result_and_goal_rules_for_every_player(tmp_path):
                 (player_ids[0], expected_cents),
                 (player_ids[1], expected_cents),
             ]
+
+
+def test_single_match_refreshes_dbu_data_and_reconciles_fines(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json={**setup_payload(), "dbuClubName": "Club"})
+    token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    season_id = setup.get_json()["squad"]["currentSeason"]["id"]
+    player_ids = []
+    for name in ("P1", "P2"):
+        player_ids.append(owner.post(
+            f"/api/v1/squads/{squad_id}/players",
+            json={"dbuName": name},
+            headers={"X-CSRF-Token": token},
+        ).get_json()["player"]["id"])
+    for rule_type, amount in (("WIN_FINE", 10), ("SCORED_GOAL", 2)):
+        owner.post(
+            f"/api/v1/squads/{squad_id}/fine-rules",
+            json={"name": rule_type, "type": rule_type, "amount": amount},
+            headers={"X-CSRF-Token": token},
+        )
+
+    with app.app_context():
+        database_session = get_db()
+        match = Match(season_id=season_id, dbu_id="refresh-me", status="complete")
+        database_session.add(match)
+        database_session.commit()
+        match_id = match.id
+
+    class RefreshDBUClient:
+        score = 2
+        lineup = ["P1"]
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def fetch_match(self, _match_id, _club_name):
+            return {
+                "dbu_id": "refresh-me",
+                "home_club": "CLUB",
+                "away_club": "VISITORS",
+                "home_score": self.score,
+                "away_score": 1,
+                "match_date": datetime(2026, 7, 20, 19, 0),
+                "lineup": self.lineup,
+            }
+
+    monkeypatch.setattr("backend.services.DBUClient", RefreshDBUClient)
+    first = owner.post(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/refresh",
+        json={},
+        headers={"X-CSRF-Token": token},
+    )
+    assert first.status_code == 200
+    assert first.get_json()["report"]["chargesCreated"] == 1
+
+    RefreshDBUClient.score = 3
+    RefreshDBUClient.lineup = ["P1", "P2"]
+    second = owner.post(
+        f"/api/v1/squads/{squad_id}/matches/{match_id}/refresh",
+        json={},
+        headers={"X-CSRF-Token": token},
+    )
+    assert second.status_code == 200
+    assert second.get_json()["report"]["chargesCreated"] == 1
+    assert second.get_json()["report"]["chargesUpdated"] == 1
+    dashboard = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    assert dashboard["matches"][0]["homeScore"] == 3
+    assert [player["totalFines"] for player in dashboard["players"]] == [16, 16]
 
 
 def test_future_dbu_matches_are_visible_and_sorted(tmp_path, monkeypatch):

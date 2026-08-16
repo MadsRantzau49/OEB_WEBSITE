@@ -220,6 +220,20 @@ p { color: var(--muted); line-height: 1.5; }
 .match-state { display: inline-block; margin-top: 7px; border-radius: 999px; padding: 4px 7px; background: var(--lime); color: var(--ink); font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .dbu-sync-help { margin-top: 9px; }
 .match-editor-body { padding: 12px; border-top: 1px solid var(--line); }
+.match-refresh { margin-top: 0; }
+.match-refresh-help { margin-top: 7px; }
+.washer-picker { margin: 18px 0; padding: 13px; border-radius: 11px; background: var(--paper); }
+.washer-picker > b { display: block; margin-bottom: 4px; }
+.washer-picker > .help-text { margin-bottom: 11px; }
+.washer-candidates { max-height: 310px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.washer-candidates > button { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; min-height: 54px; border: 0; border-bottom: 1px solid var(--line); padding: 8px 10px; background: white; color: var(--ink); text-align: left; }
+.washer-candidates > button:last-child { border-bottom: 0; }
+.washer-candidates > button.selected { background: #e8f0dc; }
+.washer-candidates i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--paper); color: var(--muted); font-size: 11px; font-style: normal; font-weight: 800; }
+.washer-candidates span, .washer-candidates small { display: block; min-width: 0; }
+.washer-candidates small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.washer-candidates strong { color: var(--green); font-size: 10px; text-align: right; }
+.washer-clear { display: block; margin: 10px 0 0 auto; }
 .text-danger { border: 0; background: none; color: var(--red); font-size: 12px; font-weight: 700; }
 .lineup-edit-list > div { display: flex; align-items: center; justify-content: space-between; min-height: 42px; border-bottom: 1px solid var(--line); }
 .lineup-edit-list button { border: 0; background: none; color: var(--red); font-size: 12px; }

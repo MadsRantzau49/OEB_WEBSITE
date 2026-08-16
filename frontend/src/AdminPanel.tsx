@@ -22,6 +22,7 @@ const fineRuleTypes = [
   { value: "CONCEDED_GOAL", label: "Mål indkasseret" },
 ];
 type SyncReport = { createdMatches: number; updatedMatches: number; skippedMatches: number; deletedMatches?: number; errors: string[] };
+type MatchRefreshReport = { status: string; chargesCreated?: number; chargesUpdated?: number; chargesRemoved?: number; error?: string };
 
 function can(user: User, squadId: number, permission: Permission) {
   return user.isOwner || user.permissions.some((item) => item.squadId === squadId && item.permission === permission);
@@ -34,6 +35,12 @@ function money(value: number) {
 function dateLabel(value: string | null) {
   if (!value) return "Dato mangler";
   return new Intl.DateTimeFormat("da-DK", { dateStyle: "short" }).format(new Date(value));
+}
+
+function washerMessage(playerName: string, match: Match) {
+  const teams = [match.homeClub, match.awayClub].filter(Boolean).join(" - ");
+  const game = teams ? `kampen ${teams}` : "kampen";
+  return `${playerName} skal vaske tøjet til ${game}${match.date ? ` den ${dateLabel(match.date)}` : ""}`;
 }
 
 export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { dashboard: Dashboard; user: User; onFailure: (reason: unknown) => void; onRefresh: () => void }) {
@@ -216,7 +223,7 @@ function MatchTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onEr
       setDate(""); setAwayClub(""); setHomeScore(""); setAwayScore(""); onSaved();
     } catch (reason) { onError(reason); }
   }
-  return <><form className="manual-match-form" onSubmit={create}><b>Tilføj kamp uden DBU</b><p className="help-text">Brug denne til trænings- og venskabskampe.</p><Field label="Dato og tid" type="datetime-local" value={date} onChange={setDate} required /><div className="two-fields"><Field label="Hjemmehold" value={homeClub} onChange={setHomeClub} required /><Field label="Udehold" value={awayClub} onChange={setAwayClub} required /></div><div className="two-fields"><Field label="Hjemme mål" type="number" value={homeScore} onChange={setHomeScore} required /><Field label="Ude mål" type="number" value={awayScore} onChange={setAwayScore} required /></div><button className="save-button">Tilføj kamp</button></form>{!dashboard.matches.length ? <p className="empty-copy">Ingen kampe endnu.</p> : <div className="match-editors">{dashboard.matches.map((match) => <MatchEditor key={`${match.id}-${match.lineupLocked}-${match.washerId}-${match.participants.map((item) => item.playerId).join("-")}`} match={match} dashboard={dashboard} onError={onError} onSaved={onSaved} />)}</div>}</>;
+  return <><form className="manual-match-form" onSubmit={create}><b>Tilføj kamp uden DBU</b><p className="help-text">Brug denne til trænings- og venskabskampe.</p><Field label="Dato og tid" type="datetime-local" value={date} onChange={setDate} required /><div className="two-fields"><Field label="Hjemmehold" value={homeClub} onChange={setHomeClub} required /><Field label="Udehold" value={awayClub} onChange={setAwayClub} required /></div><div className="two-fields"><Field label="Hjemme mål" type="number" value={homeScore} onChange={setHomeScore} required /><Field label="Ude mål" type="number" value={awayScore} onChange={setAwayScore} required /></div><button className="save-button">Tilføj kamp</button></form>{!dashboard.matches.length ? <p className="empty-copy">Ingen kampe endnu.</p> : <div className="match-editors">{dashboard.matches.map((match) => <MatchEditor key={match.id} match={match} dashboard={dashboard} onError={onError} onSaved={onSaved} />)}</div>}</>;
 }
 
 function SeasonSettings({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -235,6 +242,14 @@ function MatchEditor({ match, dashboard, onError, onSaved }: { match: Match; das
   const [lineup, setLineup] = useState<number[]>(match.participants.flatMap((item) => item.playerId ? [item.playerId] : []));
   const [washer, setWasher] = useState(match.washerId ? String(match.washerId) : "");
   const [addPlayerId, setAddPlayerId] = useState("");
+  const [washerBusy, setWasherBusy] = useState<number | null>(null);
+  const [washerConfirmation, setWasherConfirmation] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
+  useEffect(() => {
+    setLineup(match.participants.flatMap((item) => item.playerId ? [item.playerId] : []));
+    setWasher(match.washerId ? String(match.washerId) : "");
+  }, [match.participants, match.washerId]);
   async function saveLineup(playerIds: number[]) {
     try { await api(`/squads/${dashboard.squad.id}/matches/${match.id}/lineup`, { method: "PUT", body: JSON.stringify({ playerIds }) }); setLineup(playerIds); onSaved(); }
     catch (reason) { onError(reason); }
@@ -243,10 +258,39 @@ function MatchEditor({ match, dashboard, onError, onSaved }: { match: Match; das
     try { await api(`/squads/${dashboard.squad.id}/matches/${match.id}/lineup`, { method: "DELETE" }); onSaved(); }
     catch (reason) { onError(reason); }
   }
-  async function saveWasher(value: string) {
-    setWasher(value);
-    try { await api(`/squads/${dashboard.squad.id}/matches/${match.id}/washer`, { method: "PUT", body: JSON.stringify({ playerId: value || null }) }); onSaved(); }
-    catch (reason) { onError(reason); }
+  async function saveWasher(player: Dashboard["players"][number]) {
+    setWasherBusy(player.id); setWasherConfirmation("");
+    const copyResult = navigator.clipboard?.writeText(washerMessage(player.name, match)).then(() => true).catch(() => false) ?? Promise.resolve(false);
+    try {
+      await api(`/squads/${dashboard.squad.id}/matches/${match.id}/washer`, { method: "PUT", body: JSON.stringify({ playerId: player.id }) });
+      const copied = await copyResult;
+      setWasher(String(player.id));
+      setWasherConfirmation(copied ? `${player.name} er valgt, og teksten er kopieret.` : `${player.name} er valgt, men browseren kunne ikke kopiere teksten.`);
+      onSaved();
+    } catch (reason) { onError(reason); }
+    finally { setWasherBusy(null); }
+  }
+  async function clearWasher() {
+    setWasherBusy(0); setWasherConfirmation("");
+    try {
+      await api(`/squads/${dashboard.squad.id}/matches/${match.id}/washer`, { method: "PUT", body: JSON.stringify({ playerId: null }) });
+      setWasher(""); setWasherConfirmation("Vaskeren er fjernet."); onSaved();
+    } catch (reason) { onError(reason); }
+    finally { setWasherBusy(null); }
+  }
+  async function refresh() {
+    setRefreshing(true); setRefreshMessage("");
+    try {
+      const result = await api<{ report: MatchRefreshReport }>(`/squads/${dashboard.squad.id}/matches/${match.id}/refresh`, jsonBody({}));
+      if (result.report.error) {
+        setRefreshMessage(`DBU-fejl: ${result.report.error}`);
+      } else {
+        const prefix = match.dbuId ? "DBU-data opdateret. " : "";
+        setRefreshMessage(`${prefix}Bøder: ${result.report.chargesCreated || 0} tilføjet, ${result.report.chargesUpdated || 0} opdateret, ${result.report.chargesRemoved || 0} fjernet.`);
+      }
+      onSaved();
+    } catch (reason) { onError(reason); }
+    finally { setRefreshing(false); }
   }
   async function removeMatch() {
     if (!window.confirm("Slet denne manuelle kamp og dens kampbøder?")) return;
@@ -255,8 +299,43 @@ function MatchEditor({ match, dashboard, onError, onSaved }: { match: Match; das
   }
   const lineupPlayers = lineup.map((playerId) => dashboard.players.find((player) => player.id === playerId)).filter(Boolean);
   const availablePlayers = dashboard.players.filter((player) => !lineup.includes(player.id));
+  const lastWashOrder = new Map<number, number>();
+  dashboard.matches.forEach((item, index) => { if (item.washerId) lastWashOrder.set(item.washerId, index); });
+  const washerCandidates = [...dashboard.players].sort((left, right) => (
+    left.washes - right.washes
+    || (lastWashOrder.get(left.id) ?? -1) - (lastWashOrder.get(right.id) ?? -1)
+    || left.name.localeCompare(right.name, "da-DK")
+  ));
   const played = match.homeScore !== null && match.awayScore !== null;
-  return <details><summary><span>{match.homeClub || "Kamp"} {match.homeScore ?? "–"}-{match.awayScore ?? "–"} {match.awayClub || ""}<small>{dateLabel(match.date)}{!match.dbuId ? " · Manuel kamp" : ""}</small>{!played && <em className="match-state">{match.date ? "Ikke spillet endnu" : "Mangler kampdata"}</em>}</span></summary><div className="match-editor-body"><label className="field"><span>Vasker</span><select value={washer} onChange={(event) => void saveWasher(event.target.value)}><option value="">Ikke valgt</option>{dashboard.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label><span className="field-title">Spillere i kampen</span><div className="lineup-edit-list">{lineupPlayers.map((player) => player && <div key={player.id}><span>{player.name}</span><button type="button" onClick={() => void saveLineup(lineup.filter((id) => id !== player.id))}>Fjern</button></div>)}</div><div className="add-lineup-player"><select value={addPlayerId} onChange={(event) => setAddPlayerId(event.target.value)}><option value="">Tilføj en anden spiller</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select><button type="button" disabled={!addPlayerId} onClick={() => { void saveLineup([...lineup, Number(addPlayerId)]); setAddPlayerId(""); }}>Tilføj</button></div>{match.lineupLocked && match.dbuId && <button className="text-danger" type="button" onClick={() => void resetLineup()}>Brug DBU-holdopstilling igen</button>}{!match.dbuId && <button className="danger-button" type="button" onClick={() => void removeMatch()}>Slet manuel kamp</button>}</div></details>;
+  return (
+    <details>
+      <summary><span>{match.homeClub || "Kamp"} {match.homeScore ?? "–"}-{match.awayScore ?? "–"} {match.awayClub || ""}<small>{dateLabel(match.date)}{!match.dbuId ? " · Manuel kamp" : ""}</small>{!played && <em className="match-state">{match.date ? "Ikke spillet endnu" : "Mangler kampdata"}</em>}</span></summary>
+      <div className="match-editor-body">
+        <button className="secondary-save match-refresh" type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? "Opdaterer kamp…" : "Opdater kampdata og bøder"}</button>
+        <p className="help-text match-refresh-help">{match.dbuId ? "Henter kampen fra DBU igen og retter kampbøderne." : "Genberegner kampbøderne ud fra spillerlisten og de nuværende takster."}</p>
+        {refreshMessage && <p className="save-confirmation">{refreshMessage}</p>}
+
+        <section className="washer-picker">
+          <b>Vælg vasker</b>
+          <p className="help-text">Færrest vaske står øverst. Ved samme antal står den, der vaskede for længst siden, først. Ét tryk gemmer valget og kopierer beskeden.</p>
+          <div className="washer-candidates">
+            {washerCandidates.map((player, index) => {
+              const selected = washer === String(player.id);
+              return <button key={player.id} type="button" className={selected ? "selected" : ""} aria-pressed={selected} disabled={washerBusy !== null} onClick={() => void saveWasher(player)}><i>{index + 1}</i><span><b>{player.name}</b><small>{player.washes === 0 ? "Har ikke vasket i sæsonen" : `Har vasket ${player.washes} ${player.washes === 1 ? "gang" : "gange"}`}</small></span><strong>{washerBusy === player.id ? "Gemmer…" : selected ? "Valgt · kopiér igen" : index === 0 ? "Anbefalet" : "Vælg"}</strong></button>;
+            })}
+          </div>
+          {washer && <button className="text-danger washer-clear" type="button" disabled={washerBusy !== null} onClick={() => void clearWasher()}>Fjern valgt vasker</button>}
+          {washerConfirmation && <p className="save-confirmation">{washerConfirmation}</p>}
+        </section>
+
+        <span className="field-title">Spillere i kampen</span>
+        <div className="lineup-edit-list">{lineupPlayers.map((player) => player && <div key={player.id}><span>{player.name}</span><button type="button" onClick={() => void saveLineup(lineup.filter((id) => id !== player.id))}>Fjern</button></div>)}</div>
+        <div className="add-lineup-player"><select value={addPlayerId} onChange={(event) => setAddPlayerId(event.target.value)}><option value="">Tilføj en anden spiller</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select><button type="button" disabled={!addPlayerId} onClick={() => { void saveLineup([...lineup, Number(addPlayerId)]); setAddPlayerId(""); }}>Tilføj</button></div>
+        {match.lineupLocked && match.dbuId && <button className="text-danger" type="button" onClick={() => void resetLineup()}>Brug DBU-holdopstilling igen</button>}
+        {!match.dbuId && <button className="danger-button" type="button" onClick={() => void removeMatch()}>Slet manuel kamp</button>}
+      </div>
+    </details>
+  );
 }
 
 function DbuTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {

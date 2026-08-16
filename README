@@ -230,7 +230,8 @@ The `dbu-cron` container runs once when it starts and then repeats after `DBU_SY
 An administrator can open `Administration -> Kampe, spillere og vasker` to:
 
 - Add or remove players from a match.
-- Select the clothes washer.
+- Select the clothes washer from a fair list ordered by fewest washes, then copy the assignment text with the same tap.
+- Refresh one match from DBU and recalculate its generated fines without resetting the other matches.
 - Restore the original DBU lineup.
 - Add and delete manual training or friendly matches that are not on DBU.
 

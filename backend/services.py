@@ -369,6 +369,21 @@ def sync_match(database_session, match, squad, client):
     return report
 
 
+def refresh_match(database_session, match, squad, timeout=20):
+    """Force one match to refresh and reconcile its generated fines."""
+    if match.dbu_id:
+        return sync_match(database_session, match, squad, DBUClient(timeout=timeout))
+
+    result = reconcile_match_charges(database_session, match, squad)
+    return {
+        "matchId": match.id,
+        "status": match.status,
+        "chargesCreated": result["created"],
+        "chargesUpdated": result["updated"],
+        "chargesRemoved": result["removed"],
+    }
+
+
 def sync_squad(database_session, squad, timeout=20, season_id=None, full=False):
     client = DBUClient(timeout=timeout)
     season_query = select(Season).where(Season.squad_id == squad.id, Season.active.is_(True))
