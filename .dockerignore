@@ -1,0 +1,17 @@
+.git
+.venv
+data
+node_modules
+frontend/node_modules
+frontend/dist
+Database
+Model
+Repositories
+Service
+Controllers
+Tests
+static
+templates
+secrets
+__pycache__
+*.pyc
