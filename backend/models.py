@@ -132,6 +132,7 @@ class FineRule(Base):
     name = Column(String(120), nullable=False)
     description = Column(Text, nullable=False, default="")
     amount_cents = Column(Integer, nullable=False, default=0)
+    per_minute_amount_cents = Column(Integer, nullable=False, default=0)
     rule_type = Column(String(40), nullable=False, default="TEAM_FINE")
     active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -240,6 +241,20 @@ class MobilePayImport(Base):
     rows_count = Column(Integer, nullable=False, default=0)
     message = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=utc_now, nullable=False)
+
+
+class MobilePayDriveState(Base):
+    __tablename__ = "mobilepay_drive_states"
+
+    squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), primary_key=True)
+    folder_id = Column(String(255), nullable=False)
+    last_checked_at = Column(DateTime, nullable=True)
+    last_worker_check_at = Column(DateTime, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
+    last_error = Column(String(80), nullable=True)
+    latest_file_id = Column(String(255), nullable=True)
+    latest_filename = Column(String(255), nullable=True)
+    latest_modified_time = Column(String(64), nullable=True)
 
 
 class MobilePayTransaction(Base):

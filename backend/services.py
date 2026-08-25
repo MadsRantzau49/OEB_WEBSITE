@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import and_, delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 from .dbu import DBUClient, DBUParseError
 from .mobilepay import normalize_identifier, normalize_text, parse_mobilepay_file, transaction_fingerprint
@@ -48,14 +49,15 @@ def season_for_squad(database_session, squad_id, season_id=None):
     return latest_season(database_session, squad_id)
 
 
-def parse_amount_input(data, required=True):
-    if "amountCents" in data:
-        return int(data["amountCents"])
-    if "amount" not in data and not required:
+def parse_amount_input(data, required=True, *, amount_key="amount", cents_key="amountCents"):
+    if cents_key in data:
+        return int(data[cents_key])
+    if amount_key not in data and not required:
         return 0
-    if "amount" not in data:
-        raise ValueError("Amount is required")
-    return decimal_to_cents(data["amount"])
+    if amount_key not in data:
+        message = "Amount is required" if amount_key == "amount" else f"{amount_key} is required"
+        raise ValueError(message)
+    return decimal_to_cents(data[amount_key])
 
 
 def create_fine_charge(
@@ -620,3 +622,18 @@ def process_mobilepay_import(database_session, squad, filename, file_data):
 
     database_session.flush()
     return mobilepay_import, {"created": created, "skipped": skipped, "unmatched": unmatched, "ambiguous": ambiguous}
+
+
+def commit_mobilepay_import(database_session, squad, filename, file_data):
+    """Commit an import, retrying when another worker inserted the same file first."""
+    for attempt in range(2):
+        try:
+            mobilepay_import, report = process_mobilepay_import(
+                database_session, squad, filename, file_data
+            )
+            database_session.commit()
+            return mobilepay_import, report
+        except IntegrityError:
+            database_session.rollback()
+            if attempt == 1:
+                raise

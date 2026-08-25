@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import os
 
 from flask import current_app, g
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
@@ -40,6 +40,7 @@ def configure_database(app):
         # Production web workers wait for that init container instead, avoiding
         # concurrent CREATE TABLE statements during Gunicorn startup.
         Base.metadata.create_all(bind=engine)
+        upgrade_schema(engine)
 
     @app.teardown_appcontext
     def close_database_session(_exception=None):
@@ -52,6 +53,22 @@ def get_db():
     if "database_session" not in g:
         g.database_session = SessionLocal()
     return g.database_session
+
+
+def upgrade_schema(database_engine):
+    """Apply small additive upgrades for databases created before migrations existed."""
+    inspector = inspect(database_engine)
+    if "fine_rules" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("fine_rules")}
+    if "per_minute_amount_cents" not in columns:
+        with database_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE fine_rules ADD COLUMN "
+                    "per_minute_amount_cents INTEGER NOT NULL DEFAULT 0"
+                )
+            )
 
 
 @contextmanager

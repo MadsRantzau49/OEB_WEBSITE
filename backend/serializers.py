@@ -69,6 +69,8 @@ def rule_json(rule):
         "description": rule.description,
         "amount": money(rule.amount_cents),
         "amountCents": rule.amount_cents,
+        "perMinuteAmount": money(rule.per_minute_amount_cents),
+        "perMinuteAmountCents": rule.per_minute_amount_cents,
         "type": rule.rule_type,
         "active": bool(rule.active),
     }

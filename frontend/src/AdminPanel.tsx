@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { api, jsonBody } from "./api";
-import type { Dashboard, FineRequest, Match, Permission, PermissionUser, Rule, Transaction, User } from "./types";
+import { api, apiErrorMessage, jsonBody } from "./api";
+import type { Dashboard, FineRequest, Match, MobilePayGoogleDriveIntegration, Permission, PermissionUser, Rule, Transaction, User } from "./types";
 
 const permissionLabels: Record<Permission, string> = {
   approve_fine_requests: "Godkend anmodninger",
@@ -15,6 +15,7 @@ const permissionLabels: Record<Permission, string> = {
 const permissionKeys = Object.keys(permissionLabels) as Permission[];
 const fineRuleTypes = [
   { value: "TEAM_FINE", label: "Almindelig bøde" },
+  { value: "LATE_FINE", label: "Kommet for sent" },
   { value: "WIN_FINE", label: "Sejr" },
   { value: "DRAW_FINE", label: "Uafgjort" },
   { value: "LOSE_FINE", label: "Nederlag" },
@@ -23,6 +24,10 @@ const fineRuleTypes = [
 ];
 type SyncReport = { createdMatches: number; updatedMatches: number; skippedMatches: number; deletedMatches?: number; errors: string[] };
 type MatchRefreshReport = { status: string; chargesCreated?: number; chargesUpdated?: number; chargesRemoved?: number; error?: string };
+type MobilePayImportResult = {
+  source: { filename: string; modifiedTime: string | null };
+  report: { created: number; skipped: number | boolean; unmatched: number; ambiguous: number };
+};
 
 function can(user: User, squadId: number, permission: Permission) {
   return user.isOwner || user.permissions.some((item) => item.squadId === squadId && item.permission === permission);
@@ -37,6 +42,11 @@ function dateLabel(value: string | null) {
   return new Intl.DateTimeFormat("da-DK", { dateStyle: "short" }).format(new Date(value));
 }
 
+function dateTimeLabel(value: string | null) {
+  if (!value) return "Aldrig";
+  return new Intl.DateTimeFormat("da-DK", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
 function washerMessage(playerName: string, match: Match) {
   const teams = [match.homeClub, match.awayClub].filter(Boolean).join(" - ");
   const game = teams ? `kampen ${teams}` : "kampen";
@@ -48,6 +58,9 @@ export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { 
   const allowed = (permission: Permission) => can(user, squadId, permission);
   const [requests, setRequests] = useState<FineRequest[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const drive = dashboard.integrations?.mobilePayGoogleDrive;
+  const driveNeedsAttention = Boolean(drive && (!drive.configured || drive.lastError || drive.workerStatus === "stale" || (drive.automatic && drive.workerStatus === "waiting")));
+  const [adminOpen, setAdminOpen] = useState(driveNeedsAttention);
 
   async function loadTasks() {
     if (allowed("approve_fine_requests")) {
@@ -60,7 +73,8 @@ export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { 
     }
   }
 
-  useEffect(() => { void loadTasks(); }, [squadId, dashboard.season.id, dashboard.season.startDate, dashboard.season.endDate]);
+  useEffect(() => { void loadTasks(); }, [squadId, dashboard.season.id, dashboard.season.startDate, dashboard.season.endDate, drive?.lastSuccessAt]);
+  useEffect(() => { if (driveNeedsAttention) setAdminOpen(true); }, [driveNeedsAttention]);
 
   const hasAdminTools = user.isOwner || permissionKeys.some(
     (permission) => permission !== "issue_fines" && allowed(permission),
@@ -76,12 +90,12 @@ export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { 
   if (!hasAdminTools) return null;
 
   return (
-    <details className="admin-fold">
+    <details className="admin-fold" open={adminOpen} onToggle={(event) => setAdminOpen(event.currentTarget.open)}>
       <summary>Administration</summary>
       <div className="admin-tools">
         <Reminder dashboard={dashboard} />
         {allowed("approve_fine_requests") && <Tool title={`Anmodninger (${requests.filter((item) => item.status === "pending").length})`}><RequestReview requests={requests} onReview={review} /></Tool>}
-        {allowed("manage_finance") && <Tool title="MobilePay"><FinanceTool dashboard={dashboard} transactions={transactions} onError={onFailure} onSaved={async () => { await loadTasks(); onRefresh(); }} /></Tool>}
+        {allowed("manage_finance") && <Tool title={driveNeedsAttention ? "MobilePay · Google Drive kræver handling" : "MobilePay"} defaultOpen={driveNeedsAttention}><FinanceTool dashboard={dashboard} transactions={transactions} onError={onFailure} onSaved={async () => { await loadTasks(); onRefresh(); }} /></Tool>}
         {allowed("manage_roster") && <Tool title="Spillere"><RosterTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_matches") && <Tool title="Kampe, spillere og vasker"><MatchTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_dbu_sync") && <Tool title="DBU-links"><DbuTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
@@ -112,14 +126,16 @@ function Reminder({ dashboard }: { dashboard: Dashboard }) {
   return <section className="reminder-box"><b>Messenger-påmindelse</b><textarea readOnly rows={Math.min(Math.max(debtors.length + 5, 5), 14)} value={text} /><button className="save-button" onClick={() => void copy()}>{copied ? "Kopieret" : "Kopiér tekst"}</button></section>;
 }
 
-function Tool({ title, children }: { title: string; children: ReactNode }) {
-  return <details className="tool"><summary>{title}</summary><div className="tool-content">{children}</div></details>;
+function Tool({ title, children, defaultOpen = false }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
+  return <details className="tool" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>{title}</summary><div className="tool-content">{children}</div></details>;
 }
 
 function RequestReview({ requests, onReview }: { requests: FineRequest[]; onReview: (id: number, action: "approve" | "reject") => void }) {
   const pending = requests.filter((item) => item.status === "pending");
   if (!pending.length) return <p className="empty-copy">Ingen anmodninger.</p>;
-  return <div className="admin-rows">{pending.map((item) => <article key={item.id}><div><b>{item.title} · {money(item.amount)}</b><small>{item.recipients.map((recipient) => recipient.name).join(", ")} · fra {item.requester}</small></div><div className="mini-actions"><button onClick={() => onReview(item.id, "approve")}>Godkend</button><button onClick={() => onReview(item.id, "reject")}>Afvis</button></div></article>)}</div>;
+  return <div className="admin-rows">{pending.map((item) => <article key={item.id}><div><b>{item.title} · {money(item.amount)}</b><small>{item.recipients.map((recipient) => recipient.name).join(", ")} · fra {item.requester}</small>{item.description && <small>{item.description}</small>}</div><div className="mini-actions"><button onClick={() => onReview(item.id, "approve")}>Godkend</button><button onClick={() => onReview(item.id, "reject")}>Afvis</button></div></article>)}</div>;
 }
 
 function FinanceTool({ dashboard, transactions, onError, onSaved }: { dashboard: Dashboard; transactions: Transaction[]; onError: (reason: unknown) => void; onSaved: () => Promise<void> }) {
@@ -226,6 +242,39 @@ function MatchTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onEr
   return <><form className="manual-match-form" onSubmit={create}><b>Tilføj kamp uden DBU</b><p className="help-text">Brug denne til trænings- og venskabskampe.</p><Field label="Dato og tid" type="datetime-local" value={date} onChange={setDate} required /><div className="two-fields"><Field label="Hjemmehold" value={homeClub} onChange={setHomeClub} required /><Field label="Udehold" value={awayClub} onChange={setAwayClub} required /></div><div className="two-fields"><Field label="Hjemme mål" type="number" value={homeScore} onChange={setHomeScore} required /><Field label="Ude mål" type="number" value={awayScore} onChange={setAwayScore} required /></div><button className="save-button">Tilføj kamp</button></form>{!dashboard.matches.length ? <p className="empty-copy">Ingen kampe endnu.</p> : <div className="match-editors">{dashboard.matches.map((match) => <MatchEditor key={match.id} match={match} dashboard={dashboard} onError={onError} onSaved={onSaved} />)}</div>}</>;
 }
 
+function MobilePayDriveImport({ integration, squadId, onError, onSaved }: { integration: MobilePayGoogleDriveIntegration; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
+  const [fetching, setFetching] = useState(false);
+  const [message, setMessage] = useState("");
+  async function fetchLatest() {
+    setFetching(true);
+    setMessage("");
+    try {
+      const result = await api<MobilePayImportResult>(`/squads/${squadId}/mobilepay-imports/google-drive/latest`, jsonBody({}));
+      if (result.report.skipped === true) {
+        setMessage(`${result.source.filename} var allerede hentet. Ingen rækker blev tilføjet.`);
+      } else {
+        const needsAssignment = result.report.unmatched + result.report.ambiguous;
+        setMessage(`${result.source.filename}: ${result.report.created} nye rækker · ${needsAssignment} mangler tildeling`);
+      }
+      onSaved();
+    } catch (reason) { onError(reason); onSaved(); }
+    finally { setFetching(false); }
+  }
+  const statusLabel = !integration.configured ? "Ikke konfigureret" : integration.lastError === "mobilepay_drive_file_not_found" ? "Afventer Excel-fil" : integration.lastError ? "Kræver handling" : integration.workerStatus === "running" ? "Automatisk aktiv" : integration.workerStatus === "stale" ? "Automatik stoppet" : integration.workerStatus === "disabled" ? "Automatik slået fra" : "Afventer første kontrol";
+  const interval = Math.max(Math.round(integration.pollIntervalSeconds / 60), 1);
+  return (
+    <section className={`mobilepay-drive-import ${integration.lastError ? "has-error" : ""}`}>
+      <div className="drive-heading"><b>Google Drive-import</b><span>{statusLabel}</span></div>
+      <p className="help-text">{integration.automatic ? `Kontrollerer automatisk den nyeste .xlsx-fil hvert ${interval}. minut og ignorerer filer, der allerede er importeret.` : "Automatisk import er slået fra på serveren."}</p>
+      {integration.lastError && <p className="drive-error">{apiErrorMessage(integration.lastError)}</p>}
+      <div className="drive-status-details"><span>Seneste kontrol<strong>{dateTimeLabel(integration.lastCheckedAt)}</strong></span><span>Seneste fundne fil<strong>{integration.latestFilename || "Ingen endnu"}</strong></span></div>
+      {integration.serviceAccountEmail && <p className="drive-share-help">Drive-mappen skal deles med <code>{integration.serviceAccountEmail}</code> som <b>Læser</b>. Nøglen alene giver ikke adgang.</p>}
+      <button className="save-button" type="button" disabled={fetching || !integration.configured} onClick={() => void fetchLatest()}>{fetching ? "Kontrollerer Google Drive…" : "Kontrollér og importér nu"}</button>
+      {message && <p className="save-confirmation">{message}</p>}
+    </section>
+  );
+}
+
 function SeasonSettings({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [startDate, setStartDate] = useState(dashboard.season.startDate);
   const [endDate, setEndDate] = useState(dashboard.season.endDate || "");
@@ -235,7 +284,7 @@ function SeasonSettings({ dashboard, onError, onSaved }: { dashboard: Dashboard;
     try { await api(`/squads/${dashboard.squad.id}/seasons/${dashboard.season.id}`, { method: "PATCH", body: JSON.stringify({ startDate, endDate }) }); setSaved(true); onSaved(); }
     catch (reason) { onError(reason); }
   }
-  return <form className="season-settings" onSubmit={save}><p className="help-text">Datoerne bestemmer hvilke MobilePay-rækker der tæller med.</p><div className="two-fields"><Field label="Fra" type="date" value={startDate} onChange={(value) => { setStartDate(value); setSaved(false); }} required /><Field label="Til" type="date" value={endDate} onChange={(value) => { setEndDate(value); setSaved(false); }} /></div><button className="secondary-save">Gem datoer</button>{saved && <p className="save-confirmation">Datoerne er gemt.</p>}</form>;
+  return <>{dashboard.integrations?.mobilePayGoogleDrive && <MobilePayDriveImport key={dashboard.squad.id} integration={dashboard.integrations.mobilePayGoogleDrive} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />}<form className="season-settings" onSubmit={save}><p className="help-text">Datoerne bestemmer hvilke MobilePay-rækker der tæller med.</p><div className="two-fields"><Field label="Fra" type="date" value={startDate} onChange={(value) => { setStartDate(value); setSaved(false); }} required /><Field label="Til" type="date" value={endDate} onChange={(value) => { setEndDate(value); setSaved(false); }} /></div><button className="secondary-save">Gem datoer</button>{saved && <p className="save-confirmation">Datoerne er gemt.</p>}</form></>;
 }
 
 function MatchEditor({ match, dashboard, onError, onSaved }: { match: Match; dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -380,27 +429,29 @@ function RuleTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onErr
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [perMinuteAmount, setPerMinuteAmount] = useState("");
   const [type, setType] = useState("TEAM_FINE");
   async function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, description, amount, type }));
-      setName(""); setDescription(""); setAmount(""); setType("TEAM_FINE"); onSaved();
+      await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, description, amount, type, ...(type === "LATE_FINE" ? { perMinuteAmount } : {}) }));
+      setName(""); setDescription(""); setAmount(""); setPerMinuteAmount(""); setType("TEAM_FINE"); onSaved();
     } catch (reason) { onError(reason); }
   }
-  return <><div className="rule-management">{dashboard.rules.map((rule) => <RuleEditor key={`${rule.id}-${rule.name}-${rule.description}-${rule.amount}`} rule={rule} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{dashboard.rules.length === 0 && <p className="empty-copy">Ingen bødetakster endnu.</p>}</div><form className="new-rule-form" onSubmit={submit}><b>Tilføj ny takst</b><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><Select label="Type" value={type} onChange={setType} options={fineRuleTypes} /><button className="save-button">Tilføj takst</button></form></>;
+  return <><div className="rule-management">{dashboard.rules.map((rule) => <RuleEditor key={`${rule.id}-${rule.name}-${rule.description}-${rule.amount}-${rule.perMinuteAmount}`} rule={rule} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{dashboard.rules.length === 0 && <p className="empty-copy">Ingen bødetakster endnu.</p>}</div><form className="new-rule-form" onSubmit={submit}><b>Tilføj ny takst</b><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}<Select label="Type" value={type} onChange={setType} options={fineRuleTypes} /><button className="save-button">Tilføj takst</button></form></>;
 }
 
 function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [name, setName] = useState(rule.name);
   const [description, setDescription] = useState(rule.description);
   const [amount, setAmount] = useState(String(rule.amount));
+  const [perMinuteAmount, setPerMinuteAmount] = useState(String(rule.perMinuteAmount));
   const [busy, setBusy] = useState(false);
   const typeLabel = fineRuleTypes.find((item) => item.value === rule.type)?.label || rule.type;
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ name, description, amount }) });
+      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ name, description, amount, ...(rule.type === "LATE_FINE" ? { perMinuteAmount } : {}) }) });
       onSaved();
     } catch (reason) { onError(reason); } finally { setBusy(false); }
   }
@@ -412,7 +463,7 @@ function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: 
       onSaved();
     } catch (reason) { onError(reason); setBusy(false); }
   }
-  return <details className="rule-editor"><summary><span><b>{rule.name}</b><small>{typeLabel}{rule.description ? ` · ${rule.description}` : ""}</small></span><strong>{money(rule.amount)}</strong></summary><form onSubmit={save}><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label="Beløb" type="number" value={amount} onChange={setAmount} required /><p className="help-text">Type: {typeLabel}</p><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bødetakst</button></form></details>;
+  return <details className="rule-editor"><summary><span><b>{rule.name}</b><small>{typeLabel}{rule.description ? ` · ${rule.description}` : ""}</small></span><strong>{rule.type === "LATE_FINE" ? `${money(rule.amount)} + ${money(rule.perMinuteAmount)}/min.` : money(rule.amount)}</strong></summary><form onSubmit={save}><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={rule.type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{rule.type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}<p className="help-text">Type: {typeLabel}</p><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bødetakst</button></form></details>;
 }
 
 function PermissionTool({ squadId, currentUser, onError }: { squadId: number; currentUser: User; onError: (reason: unknown) => void }) {

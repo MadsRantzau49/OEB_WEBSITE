@@ -1,9 +1,10 @@
 from io import BytesIO
 
 from openpyxl import Workbook
+from sqlalchemy import create_engine, inspect, text
 
 from backend.app import create_app
-from backend.db import get_db
+from backend.db import get_db, upgrade_schema
 from backend.services import deduplicate_mobilepay_transactions, find_lineup_player, sync_squad
 from backend.models import FineCharge, FineRule, Match, MatchParticipant, MobilePayTransaction, Player, Squad
 
@@ -37,6 +38,30 @@ def setup_payload():
 
 def csrf(response):
     return response.get_json()["csrfToken"]
+
+
+def test_schema_upgrade_adds_late_fine_rate_to_existing_database(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE fine_rules ("
+                "id INTEGER PRIMARY KEY, amount_cents INTEGER NOT NULL DEFAULT 0"
+                ")"
+            )
+        )
+        connection.execute(text("INSERT INTO fine_rules (id, amount_cents) VALUES (1, 1000)"))
+
+    upgrade_schema(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("fine_rules")}
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT amount_cents, per_minute_amount_cents FROM fine_rules WHERE id = 1")
+        ).one()
+    engine.dispose()
+    assert "per_minute_amount_cents" in columns
+    assert row == (1000, 0)
 
 
 def test_auth_fines_and_public_dashboard(tmp_path):
@@ -235,6 +260,92 @@ def test_admin_can_manage_fine_rules_and_issued_fines(tmp_path):
     assert after_charge_deletion["players"][0]["totalFines"] == 0
 
 
+def test_late_fine_calculates_immediate_and_requested_amounts(tmp_path):
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json=setup_payload())
+    owner_token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    season_id = setup.get_json()["squad"]["currentSeason"]["id"]
+    requester = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Late Requester"},
+        headers={"X-CSRF-Token": owner_token},
+    ).get_json()["player"]
+    recipient = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Late Recipient"},
+        headers={"X-CSRF-Token": owner_token},
+    ).get_json()["player"]
+
+    rule_response = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-rules",
+        json={
+            "name": "Kommet for sent",
+            "description": "Træningen er startet",
+            "amount": 10,
+            "perMinuteAmount": 1,
+            "type": "LATE_FINE",
+        },
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert rule_response.status_code == 201
+    rule = rule_response.get_json()["rule"]
+    assert rule["amount"] == 10
+    assert rule["perMinuteAmount"] == 1
+
+    missing_minutes = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={"seasonId": season_id, "ruleId": rule["id"], "playerIds": [recipient["id"]]},
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert missing_minutes.status_code == 400
+    assert missing_minutes.get_json()["error"] == "minutes_late_must_be_positive_integer"
+
+    immediate = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={
+            "seasonId": season_id,
+            "ruleId": rule["id"],
+            "playerIds": [recipient["id"]],
+            "minutesLate": 7,
+        },
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert immediate.status_code == 201
+    assert immediate.get_json()["request"]["status"] == "approved"
+    assert immediate.get_json()["request"]["amount"] == 17
+    assert immediate.get_json()["request"]["description"] == "Træningen er startet\n7 minutter for sent."
+
+    member = app.test_client()
+    assert member.post(
+        "/api/v1/auth/register",
+        json={"username": "late-member", "password": "", "playerId": requester["id"]},
+    ).status_code == 201
+    member_token = csrf(member.get("/api/v1/auth/me"))
+    requested = member.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={"seasonId": season_id, "ruleId": rule["id"], "playerIds": [recipient["id"]], "minutesLate": 3},
+        headers={"X-CSRF-Token": member_token},
+    )
+    assert requested.status_code == 201
+    pending_request = requested.get_json()["request"]
+    assert pending_request["status"] == "pending"
+    assert pending_request["amount"] == 13
+    assert pending_request["description"] == "Træningen er startet\n3 minutter for sent."
+
+    approved = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests/{pending_request['id']}/approve",
+        json={},
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert approved.status_code == 200
+    dashboard = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    recipient_payload = next(player for player in dashboard["players"] if player["id"] == recipient["id"])
+    assert recipient_payload["totalFines"] == 30
+    assert sorted(fine["amount"] for fine in recipient_payload["fines"]) == [13, 17]
+
+
 def test_owner_can_add_a_second_squad(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()
@@ -412,6 +523,138 @@ def test_mobilepay_rows_can_be_rematched_without_reupload(tmp_path):
         headers={"X-CSRF-Token": token},
     )
     assert second.get_json()["report"]["checked"] == 0
+
+
+def test_mobilepay_can_import_latest_google_drive_file(tmp_path, monkeypatch):
+    import json
+    import pytest
+
+    from backend.google_drive import GoogleDriveFile, MobilePayDriveError, mobilepay_drive_import_lock
+    from backend.services import process_mobilepay_import as actual_process_mobilepay_import
+    from sqlalchemy.exc import IntegrityError
+
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json=setup_payload())
+    token = csrf(setup)
+    squad = setup.get_json()["squad"]
+    credentials_file = tmp_path / "service-account.json"
+    credentials_file.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "client_email": "mobilepay@example.test",
+                "private_key": "test-key",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }
+        )
+    )
+    app.config.update(
+        MOBILEPAY_DRIVE_FOLDER_ID="folder-123",
+        MOBILEPAY_DRIVE_SQUAD_ID=squad["id"],
+        MOBILEPAY_DRIVE_CREDENTIALS_FILE=str(credentials_file),
+        MOBILEPAY_DRIVE_REQUEST_TIMEOUT=9,
+        MOBILEPAY_DRIVE_MAX_FILE_BYTES=1024 * 1024,
+        MOBILEPAY_DRIVE_LOCK_FILE=str(tmp_path / "mobilepay-drive.lock"),
+        MOBILEPAY_DRIVE_AUTO_IMPORT=True,
+        MOBILEPAY_DRIVE_POLL_SECONDS=60,
+    )
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Date", "Name", "Type", "Number", "Message", "Amount", "Currency", "Transaction type"])
+    sheet.append(["05/05/2026 20:21", "Drive Player", "Transfer", "123", "", 75, "DKK", "Pay in"])
+    file_data = BytesIO()
+    workbook.save(file_data)
+    calls = []
+
+    def fake_download(**options):
+        calls.append(options)
+        return GoogleDriveFile(
+            filename="mobilepay-latest.xlsx",
+            modified_time="2026-08-16T08:00:00Z",
+            data=file_data.getvalue(),
+        )
+
+    monkeypatch.setattr("backend.api.download_latest_xlsx", fake_download)
+    process_attempts = []
+
+    def simulate_concurrent_import(*args):
+        with pytest.raises(MobilePayDriveError) as locked:
+            with mobilepay_drive_import_lock(app.config["MOBILEPAY_DRIVE_LOCK_FILE"]):
+                pass
+        assert locked.value.code == "mobilepay_drive_import_in_progress"
+        process_attempts.append(args[2])
+        if len(process_attempts) == 1:
+            raise IntegrityError("INSERT", {}, Exception("concurrent import"))
+        return actual_process_mobilepay_import(*args)
+
+    monkeypatch.setattr("backend.services.process_mobilepay_import", simulate_concurrent_import)
+    path = f"/api/v1/squads/{squad['id']}/mobilepay-imports/google-drive/latest"
+
+    dashboard = owner.get(f"/api/v1/squads/{squad['id']}/dashboard").get_json()
+    assert dashboard["integrations"]["mobilePayGoogleDrive"] == {
+        "configured": True,
+        "automatic": True,
+        "pollIntervalSeconds": 60,
+        "workerStatus": "waiting",
+        "serviceAccountEmail": "mobilepay@example.test",
+        "lastCheckedAt": None,
+        "lastSuccessAt": None,
+        "lastError": None,
+        "latestFilename": None,
+        "latestModifiedTime": None,
+    }
+
+    member = app.test_client()
+    assert member.post(
+        "/api/v1/auth/register",
+        json={"username": "drive-member", "password": "", "playerId": None},
+    ).status_code == 201
+    member_token = csrf(member.get("/api/v1/auth/me"))
+    assert "integrations" not in member.get(
+        f"/api/v1/squads/{squad['id']}/dashboard"
+    ).get_json()
+    denied = member.post(path, json={}, headers={"X-CSRF-Token": member_token})
+    assert denied.status_code == 403
+    assert denied.get_json()["error"] == "permission_denied"
+
+    missing_csrf = owner.post(path, json={})
+    assert missing_csrf.status_code == 403
+    assert missing_csrf.get_json()["error"] == "csrf_failed"
+    assert calls == []
+
+    imported = owner.post(path, json={}, headers={"X-CSRF-Token": token})
+    assert imported.status_code == 201
+    assert imported.get_json()["source"] == {
+        "filename": "mobilepay-latest.xlsx",
+        "modifiedTime": "2026-08-16T08:00:00Z",
+    }
+    assert imported.get_json()["report"]["created"] == 1
+    assert process_attempts == ["mobilepay-latest.xlsx", "mobilepay-latest.xlsx"]
+    assert calls[0] == {
+        "folder_id": "folder-123",
+        "credentials_file": str(credentials_file),
+        "timeout": 9,
+        "max_file_bytes": 1024 * 1024,
+    }
+    drive_status = owner.get(f"/api/v1/squads/{squad['id']}/dashboard").get_json()["integrations"]["mobilePayGoogleDrive"]
+    assert drive_status["latestFilename"] == "mobilepay-latest.xlsx"
+    assert drive_status["latestModifiedTime"] == "2026-08-16T08:00:00Z"
+    assert drive_status["lastSuccessAt"] is not None
+    assert drive_status["lastError"] is None
+
+    duplicate = owner.post(path, json={}, headers={"X-CSRF-Token": token})
+    assert duplicate.status_code == 201
+    assert duplicate.get_json()["report"]["skipped"] is True
+    assert len(owner.get(f"/api/v1/squads/{squad['id']}/transactions").get_json()["transactions"]) == 1
+
+    app.config["MOBILEPAY_DRIVE_SQUAD_ID"] = squad["id"] + 1
+    wrong_squad = owner.post(path, json={}, headers={"X-CSRF-Token": token})
+    assert wrong_squad.status_code == 403
+    assert wrong_squad.get_json()["error"] == "mobilepay_drive_not_configured_for_squad"
+    dashboard = owner.get(f"/api/v1/squads/{squad['id']}/dashboard").get_json()
+    assert dashboard["integrations"]["mobilePayGoogleDrive"]["configured"] is False
 
 
 def test_mobilepay_numeric_identifiers_do_not_create_duplicates(tmp_path):

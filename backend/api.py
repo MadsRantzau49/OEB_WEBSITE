@@ -6,6 +6,17 @@ from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import and_, delete, func, or_, select
 
 from .db import get_db
+from .google_drive import (
+    MobilePayDriveError,
+    download_latest_xlsx,
+    mobilepay_drive_import_lock,
+)
+from .mobilepay import MobilePayImportError
+from .mobilepay_drive_worker import (
+    mobilepay_drive_status,
+    record_drive_failure,
+    record_drive_success,
+)
 from .models import (
     Club,
     DbuSource,
@@ -49,12 +60,12 @@ from .serializers import (
 )
 from .services import (
     clear_match_lineup_lock,
+    commit_mobilepay_import,
     create_fine_charge,
     effective_match_players,
     latest_season,
     map_player_to_existing_lineups,
     parse_amount_input,
-    process_mobilepay_import,
     refresh_match,
     rematch_mobilepay_transactions,
     reset_dbu_matches,
@@ -105,6 +116,13 @@ def parse_datetime(value, field_name, required=False):
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
+
+
+def parse_minutes_late(value):
+    value = str(value or "").strip()
+    if not re.fullmatch(r"[1-9]\d*", value):
+        raise ValueError("minutes_late_must_be_positive_integer")
+    return int(value)
 
 
 def default_season_start(season_name):
@@ -583,19 +601,25 @@ def authenticated_dashboard(squad_id):
         return error("season_not_found", 404)
     user = load_current_user()
     can_manage_roster = has_permission(database_session, user, squad_id, "manage_roster")
+    can_manage_finance = has_permission(database_session, user, squad_id, "manage_finance")
     include_matches = can_manage_roster or any(
         has_permission(database_session, user, squad_id, permission)
         for permission in ("manage_matches", "manage_dbu_sync")
     )
-    return jsonify(
-        dashboard_json(
-            database_session,
-            squad,
-            season,
-            include_matches=include_matches,
-            include_account_status=can_manage_roster,
-        )
+    payload = dashboard_json(
+        database_session,
+        squad,
+        season,
+        include_matches=include_matches,
+        include_account_status=can_manage_roster,
     )
+    if can_manage_finance:
+        payload["integrations"] = {
+            "mobilePayGoogleDrive": mobilepay_drive_status(
+                database_session, current_app.config, squad.id
+            )
+        }
+    return jsonify(payload)
 
 
 @api.get("/squads/<int:squad_id>/fine-requests")
@@ -643,11 +667,21 @@ def create_fine_request(squad_id):
         if rule is None:
             return error("fine_rule_not_found", 404)
     try:
-        amount_cents = rule.amount_cents if rule else parse_amount_input(data)
+        if rule and rule.rule_type == "LATE_FINE":
+            minutes_late = parse_minutes_late(data.get("minutesLate"))
+            amount_cents = rule.amount_cents + minutes_late * rule.per_minute_amount_cents
+        else:
+            minutes_late = None
+            amount_cents = rule.amount_cents if rule else parse_amount_input(data)
     except (ValueError, TypeError) as exc:
         return error(str(exc))
     title = (rule.name if rule else str(data.get("title", "")).strip())
     description = rule.description if rule else str(data.get("description", "")).strip()
+    if minutes_late is not None:
+        unit = "minut" if minutes_late == 1 else "minutter"
+        description = "\n".join(
+            item for item in (description.strip(), f"{minutes_late} {unit} for sent.") if item
+        )
     if not title:
         return error("title_is_required")
     user = load_current_user()
@@ -844,14 +878,20 @@ def create_fine_rule(squad_id):
     if permission:
         return permission
     data = body()
+    rule_type = str(data.get("type", "TEAM_FINE"))
     try:
         amount_cents = parse_amount_input(data)
+        per_minute_amount_cents = parse_amount_input(
+            data,
+            required=rule_type == "LATE_FINE",
+            amount_key="perMinuteAmount",
+            cents_key="perMinuteAmountCents",
+        )
     except (ValueError, TypeError) as exc:
         return error(str(exc))
     name = str(data.get("name", "")).strip()
     if not name:
         return error("name_is_required")
-    rule_type = str(data.get("type", "TEAM_FINE"))
     automatic_types = {"WIN_FINE", "DRAW_FINE", "LOSE_FINE", "SCORED_GOAL", "CONCEDED_GOAL"}
     if rule_type in automatic_types and database_session.scalar(
         select(FineRule).where(FineRule.squad_id == squad_id, FineRule.rule_type == rule_type, FineRule.active.is_(True))
@@ -862,6 +902,7 @@ def create_fine_rule(squad_id):
         name=name,
         description=str(data.get("description", "")),
         amount_cents=max(0, amount_cents),
+        per_minute_amount_cents=max(0, per_minute_amount_cents) if rule_type == "LATE_FINE" else 0,
         rule_type=rule_type,
     )
     database_session.add(rule)
@@ -887,6 +928,20 @@ def update_fine_rule(squad_id, rule_id):
     if "amount" in data or "amountCents" in data:
         try:
             rule.amount_cents = max(0, parse_amount_input(data))
+        except (ValueError, TypeError) as exc:
+            return error(str(exc))
+    if "perMinuteAmount" in data or "perMinuteAmountCents" in data:
+        if rule.rule_type != "LATE_FINE":
+            return error("per_minute_amount_only_applies_to_late_fines")
+        try:
+            rule.per_minute_amount_cents = max(
+                0,
+                parse_amount_input(
+                    data,
+                    amount_key="perMinuteAmount",
+                    cents_key="perMinuteAmountCents",
+                ),
+            )
         except (ValueError, TypeError) as exc:
             return error(str(exc))
     if "active" in data:
@@ -1104,12 +1159,107 @@ def upload_mobilepay(squad_id):
     if upload is None or not upload.filename.lower().endswith(".xlsx"):
         return error("an_xlsx_file_is_required")
     try:
-        mobilepay_import, report = process_mobilepay_import(database_session, squad, upload.filename, upload.read())
-        database_session.commit()
-    except Exception as exc:
+        mobilepay_import, report = commit_mobilepay_import(
+            database_session, squad, upload.filename, upload.read()
+        )
+    except MobilePayImportError as exc:
         database_session.rollback()
         return error(str(exc))
+    except Exception:
+        database_session.rollback()
+        current_app.logger.exception("MobilePay import failed")
+        return error("mobilepay_import_failed", 500)
     return jsonify({"import": {"id": mobilepay_import.id, "filename": mobilepay_import.filename, "rows": mobilepay_import.rows_count, "status": mobilepay_import.status}, "report": report}), 201
+
+
+@api.post("/squads/<int:squad_id>/mobilepay-imports/google-drive/latest")
+@user_required
+def import_latest_mobilepay_from_google_drive(squad_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_finance")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+
+    configured_squad_id = current_app.config.get("MOBILEPAY_DRIVE_SQUAD_ID")
+    folder_id = str(current_app.config.get("MOBILEPAY_DRIVE_FOLDER_ID") or "").strip()
+    try:
+        configured_squad_id = int(configured_squad_id)
+    except (TypeError, ValueError):
+        return error("mobilepay_drive_not_configured", 503)
+    if configured_squad_id != squad.id:
+        return error("mobilepay_drive_not_configured_for_squad", 403)
+
+    # Release the read-only authorization transaction before waiting on Drive.
+    database_session.rollback()
+    try:
+        with mobilepay_drive_import_lock(
+            current_app.config.get("MOBILEPAY_DRIVE_LOCK_FILE", "/tmp/oeb-mobilepay-drive.lock")
+        ):
+            drive_file = download_latest_xlsx(
+                folder_id=folder_id,
+                credentials_file=current_app.config.get("MOBILEPAY_DRIVE_CREDENTIALS_FILE"),
+                timeout=current_app.config.get("MOBILEPAY_DRIVE_REQUEST_TIMEOUT", 20),
+                max_file_bytes=current_app.config.get(
+                    "MOBILEPAY_DRIVE_MAX_FILE_BYTES", current_app.config["MAX_CONTENT_LENGTH"]
+                ),
+            )
+            permission = permission_error(
+                database_session, load_current_user(), squad_id, "manage_finance"
+            )
+            if permission:
+                return permission
+            squad, squad_error = require_squad(database_session, squad_id)
+            if squad_error:
+                return squad_error
+            mobilepay_import, report = commit_mobilepay_import(
+                database_session, squad, drive_file.filename, drive_file.data
+            )
+            record_drive_success(
+                database_session, squad.id, folder_id, drive_file
+            )
+            database_session.commit()
+    except MobilePayDriveError as exc:
+        database_session.rollback()
+        if exc.code != "mobilepay_drive_import_in_progress":
+            record_drive_failure(database_session, squad_id, folder_id, exc.code)
+            database_session.commit()
+        current_app.logger.warning(
+            "Google Drive MobilePay import failed: %s", exc.detail or exc.code
+        )
+        return error(exc.code, exc.status)
+    except MobilePayImportError as exc:
+        database_session.rollback()
+        record_drive_failure(
+            database_session, squad_id, folder_id, "mobilepay_import_failed"
+        )
+        database_session.commit()
+        return error(str(exc))
+    except Exception:
+        database_session.rollback()
+        record_drive_failure(
+            database_session, squad_id, folder_id, "mobilepay_import_failed"
+        )
+        database_session.commit()
+        current_app.logger.exception("Google Drive MobilePay import failed")
+        return error("mobilepay_import_failed", 500)
+    return jsonify(
+        {
+            "source": {
+                "filename": drive_file.filename,
+                "modifiedTime": drive_file.modified_time,
+            },
+            "import": {
+                "id": mobilepay_import.id,
+                "filename": mobilepay_import.filename,
+                "rows": mobilepay_import.rows_count,
+                "status": mobilepay_import.status,
+            },
+            "report": report,
+        }
+    ), 201
 
 
 @api.get("/squads/<int:squad_id>/transactions")

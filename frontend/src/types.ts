@@ -86,6 +86,8 @@ export interface Rule {
   description: string;
   amount: number;
   amountCents: number;
+  perMinuteAmount: number;
+  perMinuteAmountCents: number;
   type: string;
   active: boolean;
 }
@@ -136,6 +138,19 @@ export interface DbuSource {
   url: string;
 }
 
+export interface MobilePayGoogleDriveIntegration {
+  configured: boolean;
+  automatic: boolean;
+  pollIntervalSeconds: number;
+  workerStatus: "disabled" | "waiting" | "running" | "stale";
+  serviceAccountEmail: string | null;
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  latestFilename: string | null;
+  latestModifiedTime: string | null;
+}
+
 export interface Dashboard {
   squad: Squad;
   season: Season;
@@ -148,6 +163,7 @@ export interface Dashboard {
   payment: PaymentSettings;
   dbuSources: DbuSource[];
   lastSync: string | null;
+  integrations?: { mobilePayGoogleDrive: MobilePayGoogleDriveIntegration };
 }
 
 export interface FineRequest {
