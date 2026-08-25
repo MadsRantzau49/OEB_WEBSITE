@@ -149,6 +149,12 @@ p { color: var(--muted); line-height: 1.5; }
 .check-list label, .checkbox-grid label { display: flex; align-items: center; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: white; font-size: 13px; }
 .check-list input, .checkbox-grid input { width: 18px; height: 18px; margin-right: 9px; accent-color: var(--green); }
 .custom-fine-fields { padding: 13px; border-radius: 11px; background: var(--paper); }
+.late-fine-fields { margin-bottom: 16px; padding: 13px; border-radius: 11px; background: var(--paper); }
+.late-fine-fields .field { margin-bottom: 10px; }
+.late-fine-total { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; margin: 0; border-top: 1px solid var(--line); padding-top: 12px; color: var(--ink); }
+.late-fine-total span { font-size: 12px; font-weight: 800; }
+.late-fine-total strong { color: var(--red); font-size: 18px; }
+.late-fine-total small { grid-column: 1 / -1; color: var(--muted); font-size: 10px; }
 .selected-players { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .selected-players > b { display: block; margin-bottom: 5px; font-size: 12px; }
 .selected-players button, .fine-player-results button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 40px; border: 0; border-top: 1px solid var(--line); padding: 8px 2px; background: none; text-align: left; }

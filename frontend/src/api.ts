@@ -15,6 +15,7 @@ const errorMessages: Record<string, string> = {
   select_at_least_one_valid_player: "Vælg mindst én spiller.",
   fine_rule_not_found: "Vælg en gyldig bøde.",
   fine_charge_not_found: "Bøden findes ikke længere.",
+  minutes_late_must_be_positive_integer: "Angiv antal minutter for sent som et positivt heltal.",
   permission_denied: "Du har ikke rettighed til denne handling.",
   mobilepay_drive_not_configured: "Google Drive er ikke konfigureret på serveren.",
   mobilepay_drive_not_configured_for_squad: "Google Drive-mappen er ikke knyttet til dette hold.",

@@ -49,14 +49,15 @@ def season_for_squad(database_session, squad_id, season_id=None):
     return latest_season(database_session, squad_id)
 
 
-def parse_amount_input(data, required=True):
-    if "amountCents" in data:
-        return int(data["amountCents"])
-    if "amount" not in data and not required:
+def parse_amount_input(data, required=True, *, amount_key="amount", cents_key="amountCents"):
+    if cents_key in data:
+        return int(data[cents_key])
+    if amount_key not in data and not required:
         return 0
-    if "amount" not in data:
-        raise ValueError("Amount is required")
-    return decimal_to_cents(data["amount"])
+    if amount_key not in data:
+        message = "Amount is required" if amount_key == "amount" else f"{amount_key} is required"
+        raise ValueError(message)
+    return decimal_to_cents(data[amount_key])
 
 
 def create_fine_charge(

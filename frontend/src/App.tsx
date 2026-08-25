@@ -386,17 +386,22 @@ function mobilePayLink(base: string, amount: number, playerName: string) {
 
 function RequestSheet({ dashboard, instant, onClose, onError, onSaved }: { dashboard: Dashboard; instant: boolean; onClose: () => void; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [ruleId, setRuleId] = useState("");
+  const [minutesLate, setMinutesLate] = useState("");
   const [playerIds, setPlayerIds] = useState<number[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customAmount, setCustomAmount] = useState("");
   const [customDescription, setCustomDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const requestRules = dashboard.rules.filter((rule) => rule.type === "TEAM_FINE");
+  const requestRules = dashboard.rules.filter((rule) => rule.type === "TEAM_FINE" || rule.type === "LATE_FINE");
   const normalizedPlayerSearch = playerSearch.trim().toLocaleLowerCase("da-DK");
   const matchingPlayers = normalizedPlayerSearch ? dashboard.players.filter((player) => !playerIds.includes(player.id) && player.name.toLocaleLowerCase("da-DK").includes(normalizedPlayerSearch)).slice(0, 10) : [];
   const selectedPlayers = playerIds.flatMap((id) => dashboard.players.find((player) => player.id === id) || []);
   const isCustom = ruleId === "custom";
+  const selectedRule = requestRules.find((rule) => String(rule.id) === ruleId);
+  const isLateFine = selectedRule?.type === "LATE_FINE";
+  const validMinutesLate = !isLateFine || /^[1-9]\d*$/.test(minutesLate);
+  const calculatedAmount = selectedRule ? selectedRule.amount + (isLateFine && validMinutesLate ? Number(minutesLate) * selectedRule.perMinuteAmount : 0) : 0;
   const validCustomFine = !isCustom || (customTitle.trim().length > 0 && Number(customAmount) > 0);
   function togglePlayer(playerId: number) {
     setPlayerIds((current) => current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId]);
@@ -404,7 +409,7 @@ function RequestSheet({ dashboard, instant, onClose, onError, onSaved }: { dashb
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      const fine = isCustom ? { title: customTitle, amount: customAmount, description: customDescription } : { ruleId };
+      const fine = isCustom ? { title: customTitle, amount: customAmount, description: customDescription } : { ruleId, ...(isLateFine ? { minutesLate } : {}) };
       await api(`/squads/${dashboard.squad.id}/fine-requests`, jsonBody({ seasonId: dashboard.season.id, playerIds, ...fine }));
       onSaved();
     } catch (reason) { onError(reason); } finally { setBusy(false); }
@@ -415,8 +420,9 @@ function RequestSheet({ dashboard, instant, onClose, onError, onSaved }: { dashb
         <button className="sheet-close" type="button" onClick={onClose}>×</button>
         <span className="eyebrow">{instant ? "GIV BØDE" : "ANMOD OM BØDE"}</span>
         <h2>Vælg bøde og spillere</h2>
-        <label className="field"><span>Bøde</span><select value={ruleId} onChange={(event) => setRuleId(event.target.value)} required><option value="">Vælg bøde</option>{requestRules.map((rule) => <option key={rule.id} value={rule.id}>{rule.name} · {money(rule.amount)}</option>)}<option value="custom">Anden bøde…</option></select></label>
+        <label className="field"><span>Bøde</span><select value={ruleId} onChange={(event) => { setRuleId(event.target.value); setMinutesLate(""); }} required><option value="">Vælg bøde</option>{requestRules.map((rule) => <option key={rule.id} value={rule.id}>{rule.name} · {rule.type === "LATE_FINE" ? `${money(rule.amount)} + ${money(rule.perMinuteAmount)}/min.` : money(rule.amount)}</option>)}<option value="custom">Anden bøde…</option></select></label>
         {isCustom && <div className="custom-fine-fields"><Field label="Navn på bøde" value={customTitle} onChange={setCustomTitle} required /><Field label="Beløb" type="number" value={customAmount} onChange={setCustomAmount} required /><TextArea label="Beskrivelse" value={customDescription} onChange={setCustomDescription} /></div>}
+        {isLateFine && selectedRule && <div className="late-fine-fields"><Field label="Minutter for sent" type="number" value={minutesLate} onChange={setMinutesLate} min="1" step="1" required /><div className="late-fine-total"><span>Beregnet bøde</span><strong>{validMinutesLate ? money(calculatedAmount) : "Angiv minutter"}</strong><small>{money(selectedRule.amount)} fast + {validMinutesLate ? minutesLate : "0"} × {money(selectedRule.perMinuteAmount)}</small></div></div>}
         <Field label="Søg efter spiller" hint="Viser højst 10" value={playerSearch} onChange={setPlayerSearch} />
         <div className="fine-player-results">
           {matchingPlayers.map((player) => <button key={player.id} type="button" onClick={() => { togglePlayer(player.id); setPlayerSearch(""); }}>{player.name}<span>+</span></button>)}
@@ -427,7 +433,7 @@ function RequestSheet({ dashboard, instant, onClose, onError, onSaved }: { dashb
           <div>{dashboard.players.map((player) => <label key={player.id}><input type="checkbox" checked={playerIds.includes(player.id)} onChange={() => togglePlayer(player.id)} />{player.name}</label>)}</div>
         </details>
         {selectedPlayers.length > 0 ? <div className="selected-players"><b>Valgte spillere</b>{selectedPlayers.map((player) => <button key={player.id} type="button" onClick={() => togglePlayer(player.id)}>{player.name}<span>Fjern</span></button>)}</div> : <p className="empty-copy fine-player-help">Søg eller åbn listen for at vælge spillere.</p>}
-        <button className="primary-action" disabled={busy || !ruleId || !playerIds.length || !validCustomFine}>{busy ? "Gemmer…" : instant ? "Giv bøde nu" : "Send til godkendelse"}</button>
+        <button className="primary-action" disabled={busy || !ruleId || !playerIds.length || !validCustomFine || !validMinutesLate}>{busy ? "Gemmer…" : instant ? "Giv bøde nu" : "Send til godkendelse"}</button>
       </form>
     </div>
   );
@@ -437,8 +443,8 @@ function FormCard({ title, intro, children }: { title: string; intro: string; ch
   return <section className="form-card"><h1>{title}</h1><p>{intro}</p>{children}</section>;
 }
 
-function Field({ label, value, onChange, type = "text", hint, required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; required?: boolean }) {
-  return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
+function Field({ label, value, onChange, type = "text", hint, required = false, min, step }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; required?: boolean; min?: string; step?: string }) {
+  return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span><input type={type} value={value} min={min} step={step} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
 }
 
 function TextArea({ label, value, onChange, hint }: { label: string; value: string; onChange: (value: string) => void; hint?: string }) {

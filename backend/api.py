@@ -118,6 +118,13 @@ def parse_datetime(value, field_name, required=False):
     return parsed
 
 
+def parse_minutes_late(value):
+    value = str(value or "").strip()
+    if not re.fullmatch(r"[1-9]\d*", value):
+        raise ValueError("minutes_late_must_be_positive_integer")
+    return int(value)
+
+
 def default_season_start(season_name):
     match = re.search(r"(20\d{2})", str(season_name or ""))
     year = int(match.group(1)) if match else date.today().year
@@ -660,11 +667,21 @@ def create_fine_request(squad_id):
         if rule is None:
             return error("fine_rule_not_found", 404)
     try:
-        amount_cents = rule.amount_cents if rule else parse_amount_input(data)
+        if rule and rule.rule_type == "LATE_FINE":
+            minutes_late = parse_minutes_late(data.get("minutesLate"))
+            amount_cents = rule.amount_cents + minutes_late * rule.per_minute_amount_cents
+        else:
+            minutes_late = None
+            amount_cents = rule.amount_cents if rule else parse_amount_input(data)
     except (ValueError, TypeError) as exc:
         return error(str(exc))
     title = (rule.name if rule else str(data.get("title", "")).strip())
     description = rule.description if rule else str(data.get("description", "")).strip()
+    if minutes_late is not None:
+        unit = "minut" if minutes_late == 1 else "minutter"
+        description = "\n".join(
+            item for item in (description.strip(), f"{minutes_late} {unit} for sent.") if item
+        )
     if not title:
         return error("title_is_required")
     user = load_current_user()
@@ -861,14 +878,20 @@ def create_fine_rule(squad_id):
     if permission:
         return permission
     data = body()
+    rule_type = str(data.get("type", "TEAM_FINE"))
     try:
         amount_cents = parse_amount_input(data)
+        per_minute_amount_cents = parse_amount_input(
+            data,
+            required=rule_type == "LATE_FINE",
+            amount_key="perMinuteAmount",
+            cents_key="perMinuteAmountCents",
+        )
     except (ValueError, TypeError) as exc:
         return error(str(exc))
     name = str(data.get("name", "")).strip()
     if not name:
         return error("name_is_required")
-    rule_type = str(data.get("type", "TEAM_FINE"))
     automatic_types = {"WIN_FINE", "DRAW_FINE", "LOSE_FINE", "SCORED_GOAL", "CONCEDED_GOAL"}
     if rule_type in automatic_types and database_session.scalar(
         select(FineRule).where(FineRule.squad_id == squad_id, FineRule.rule_type == rule_type, FineRule.active.is_(True))
@@ -879,6 +902,7 @@ def create_fine_rule(squad_id):
         name=name,
         description=str(data.get("description", "")),
         amount_cents=max(0, amount_cents),
+        per_minute_amount_cents=max(0, per_minute_amount_cents) if rule_type == "LATE_FINE" else 0,
         rule_type=rule_type,
     )
     database_session.add(rule)
@@ -904,6 +928,20 @@ def update_fine_rule(squad_id, rule_id):
     if "amount" in data or "amountCents" in data:
         try:
             rule.amount_cents = max(0, parse_amount_input(data))
+        except (ValueError, TypeError) as exc:
+            return error(str(exc))
+    if "perMinuteAmount" in data or "perMinuteAmountCents" in data:
+        if rule.rule_type != "LATE_FINE":
+            return error("per_minute_amount_only_applies_to_late_fines")
+        try:
+            rule.per_minute_amount_cents = max(
+                0,
+                parse_amount_input(
+                    data,
+                    amount_key="perMinuteAmount",
+                    cents_key="perMinuteAmountCents",
+                ),
+            )
         except (ValueError, TypeError) as exc:
             return error(str(exc))
     if "active" in data:

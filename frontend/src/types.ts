@@ -86,6 +86,8 @@ export interface Rule {
   description: string;
   amount: number;
   amountCents: number;
+  perMinuteAmount: number;
+  perMinuteAmountCents: number;
   type: string;
   active: boolean;
 }

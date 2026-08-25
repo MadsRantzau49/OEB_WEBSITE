@@ -1,9 +1,10 @@
 from io import BytesIO
 
 from openpyxl import Workbook
+from sqlalchemy import create_engine, inspect, text
 
 from backend.app import create_app
-from backend.db import get_db
+from backend.db import get_db, upgrade_schema
 from backend.services import deduplicate_mobilepay_transactions, find_lineup_player, sync_squad
 from backend.models import FineCharge, FineRule, Match, MatchParticipant, MobilePayTransaction, Player, Squad
 
@@ -37,6 +38,30 @@ def setup_payload():
 
 def csrf(response):
     return response.get_json()["csrfToken"]
+
+
+def test_schema_upgrade_adds_late_fine_rate_to_existing_database(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE fine_rules ("
+                "id INTEGER PRIMARY KEY, amount_cents INTEGER NOT NULL DEFAULT 0"
+                ")"
+            )
+        )
+        connection.execute(text("INSERT INTO fine_rules (id, amount_cents) VALUES (1, 1000)"))
+
+    upgrade_schema(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("fine_rules")}
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT amount_cents, per_minute_amount_cents FROM fine_rules WHERE id = 1")
+        ).one()
+    engine.dispose()
+    assert "per_minute_amount_cents" in columns
+    assert row == (1000, 0)
 
 
 def test_auth_fines_and_public_dashboard(tmp_path):
@@ -233,6 +258,92 @@ def test_admin_can_manage_fine_rules_and_issued_fines(tmp_path):
     after_charge_deletion = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
     assert after_charge_deletion["players"][0]["fines"] == []
     assert after_charge_deletion["players"][0]["totalFines"] == 0
+
+
+def test_late_fine_calculates_immediate_and_requested_amounts(tmp_path):
+    app = make_app(tmp_path)
+    owner = app.test_client()
+    setup = owner.post("/api/v1/setup", json=setup_payload())
+    owner_token = csrf(setup)
+    squad_id = setup.get_json()["squad"]["id"]
+    season_id = setup.get_json()["squad"]["currentSeason"]["id"]
+    requester = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Late Requester"},
+        headers={"X-CSRF-Token": owner_token},
+    ).get_json()["player"]
+    recipient = owner.post(
+        f"/api/v1/squads/{squad_id}/players",
+        json={"dbuName": "Late Recipient"},
+        headers={"X-CSRF-Token": owner_token},
+    ).get_json()["player"]
+
+    rule_response = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-rules",
+        json={
+            "name": "Kommet for sent",
+            "description": "Træningen er startet",
+            "amount": 10,
+            "perMinuteAmount": 1,
+            "type": "LATE_FINE",
+        },
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert rule_response.status_code == 201
+    rule = rule_response.get_json()["rule"]
+    assert rule["amount"] == 10
+    assert rule["perMinuteAmount"] == 1
+
+    missing_minutes = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={"seasonId": season_id, "ruleId": rule["id"], "playerIds": [recipient["id"]]},
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert missing_minutes.status_code == 400
+    assert missing_minutes.get_json()["error"] == "minutes_late_must_be_positive_integer"
+
+    immediate = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={
+            "seasonId": season_id,
+            "ruleId": rule["id"],
+            "playerIds": [recipient["id"]],
+            "minutesLate": 7,
+        },
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert immediate.status_code == 201
+    assert immediate.get_json()["request"]["status"] == "approved"
+    assert immediate.get_json()["request"]["amount"] == 17
+    assert immediate.get_json()["request"]["description"] == "Træningen er startet\n7 minutter for sent."
+
+    member = app.test_client()
+    assert member.post(
+        "/api/v1/auth/register",
+        json={"username": "late-member", "password": "", "playerId": requester["id"]},
+    ).status_code == 201
+    member_token = csrf(member.get("/api/v1/auth/me"))
+    requested = member.post(
+        f"/api/v1/squads/{squad_id}/fine-requests",
+        json={"seasonId": season_id, "ruleId": rule["id"], "playerIds": [recipient["id"]], "minutesLate": 3},
+        headers={"X-CSRF-Token": member_token},
+    )
+    assert requested.status_code == 201
+    pending_request = requested.get_json()["request"]
+    assert pending_request["status"] == "pending"
+    assert pending_request["amount"] == 13
+    assert pending_request["description"] == "Træningen er startet\n3 minutter for sent."
+
+    approved = owner.post(
+        f"/api/v1/squads/{squad_id}/fine-requests/{pending_request['id']}/approve",
+        json={},
+        headers={"X-CSRF-Token": owner_token},
+    )
+    assert approved.status_code == 200
+    dashboard = owner.get(f"/api/v1/squads/{squad_id}/dashboard").get_json()
+    recipient_payload = next(player for player in dashboard["players"] if player["id"] == recipient["id"])
+    assert recipient_payload["totalFines"] == 30
+    assert sorted(fine["amount"] for fine in recipient_payload["fines"]) == [13, 17]
 
 
 def test_owner_can_add_a_second_squad(tmp_path):
