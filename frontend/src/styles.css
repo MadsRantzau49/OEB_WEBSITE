@@ -177,6 +177,19 @@ p { color: var(--muted); line-height: 1.5; }
 .two-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .upload { display: block; margin-top: 18px; border: 1px dashed var(--green); border-radius: 11px; padding: 15px; color: var(--green); font-weight: 800; text-align: center; cursor: pointer; }
 .upload input { display: none; }
+.mobilepay-drive-import { margin-bottom: 18px; border: 1px solid #b8d1c8; border-radius: 11px; padding: 14px; background: #f4faf7; }
+.mobilepay-drive-import.has-error { border-color: #e2b3a8; background: #fff7f4; }
+.drive-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.drive-heading > span { flex: none; border-radius: 999px; padding: 5px 8px; background: #d8ebe4; color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.has-error .drive-heading > span { background: #f7dcd5; color: var(--red); }
+.mobilepay-drive-import .help-text { margin-top: 8px; }
+.drive-error { margin: 10px 0 0; color: var(--red); font-size: 12px; font-weight: 750; }
+.drive-status-details { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.drive-status-details span { min-width: 0; border-radius: 8px; padding: 9px; background: rgba(255, 255, 255, .72); color: var(--muted); font-size: 10px; }
+.drive-status-details strong { display: block; overflow: hidden; margin-top: 3px; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.drive-share-help { margin: 12px 0 0; font-size: 11px; }
+.drive-share-help code { overflow-wrap: anywhere; color: var(--ink); }
+.mobilepay-drive-import .save-button { margin-top: 12px; }
 .admin-rows { margin: 8px 0 18px; }
 .admin-rows h4 { margin: 0 0 8px; }
 .rule-management { margin-bottom: 20px; }

@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import AdminPanel from "./AdminPanel";
 import { api, jsonBody, setCsrfToken } from "./api";
 import type { Charge, Dashboard, PaymentSettings, Permission, Player, SetupStatus, Squad, User } from "./types";
@@ -215,7 +215,7 @@ function RegisterScreen({ squads, onDone, onBack, onError, error }: { squads: Sq
 }
 
 function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHome, onError, error }: { squad: Squad; squads: Squad[]; user: User | null; onSquad: (squad: Squad) => void; onLogin: () => void; onLogout: () => void; onHome: () => void; onError: (reason: unknown) => void; error: string }) {
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [loadedDashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -223,14 +223,30 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
   const [version, setVersion] = useState(0);
   const [recentPlayerIds, setRecentPlayerIds] = useState<number[]>([]);
   const [playerListOpen, setPlayerListOpen] = useState(true);
-  async function load(seasonId?: number) {
-    setLoading(true);
+  const loadRequest = useRef(0);
+  const dashboard = loadedDashboard?.squad.id === squad.id ? loadedDashboard : null;
+  async function load(seasonId?: number, background = false) {
+    const requestId = ++loadRequest.current;
+    if (!background) setLoading(true);
     try {
       const base = user ? `/squads/${squad.id}/dashboard` : `/public/squads/${squad.slug}/dashboard`;
-      setDashboard(await api<Dashboard>(`${base}${seasonId ? `?seasonId=${seasonId}` : ""}`));
-    } catch (reason) { onError(reason); } finally { setLoading(false); }
+      const result = await api<Dashboard>(`${base}${seasonId ? `?seasonId=${seasonId}` : ""}`);
+      if (requestId === loadRequest.current) setDashboard(result);
+    } catch (reason) {
+      if (requestId === loadRequest.current) onError(reason);
+    } finally {
+      if (!background && requestId === loadRequest.current) setLoading(false);
+    }
   }
-  useEffect(() => { void load(); }, [squad.id, user?.id, version]);
+  useEffect(() => {
+    void load();
+    return () => { loadRequest.current += 1; };
+  }, [squad.id, user?.id, version]);
+  useEffect(() => {
+    if (!user || loading) return;
+    const interval = window.setInterval(() => void load(dashboard?.season.id, true), 30_000);
+    return () => window.clearInterval(interval);
+  }, [squad.id, user?.id, dashboard?.season.id, loading]);
   useEffect(() => {
     setSearch("");
     setSelectedPlayerId(null);
@@ -305,7 +321,7 @@ function DashboardScreen({ squad, squads, user, onSquad, onLogin, onLogout, onHo
 
         {dashboard.expenses.length > 0 && <details className="fold"><summary>Penge brugt fra boksen <span>{dashboard.expenses.length}</span></summary><div className="fold-content simple-rows">{dashboard.expenses.map((item) => <div key={item.id}><span><b>{item.name || "Ukendt"}</b><small>{dateLabel(item.date)}{item.message ? ` · ${item.message}` : ""}</small></span><strong>{money(item.amount)}</strong></div>)}</div></details>}
 
-        {user && <AdminPanel dashboard={dashboard} user={user} onFailure={onError} onRefresh={() => setVersion((value) => value + 1)} />}
+        {user && <AdminPanel key={dashboard.squad.id} dashboard={dashboard} user={user} onFailure={onError} onRefresh={() => setVersion((value) => value + 1)} />}
       </div>}
 
       {selectedPlayer && dashboard && <PlayerSheet player={selectedPlayer} payment={dashboard.payment} squadId={squad.id} canManageFines={canManageFines} onClose={() => setSelectedPlayerId(null)} onError={onError} onSaved={() => setVersion((value) => value + 1)} />}

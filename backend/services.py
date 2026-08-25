@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import and_, delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 from .dbu import DBUClient, DBUParseError
 from .mobilepay import normalize_identifier, normalize_text, parse_mobilepay_file, transaction_fingerprint
@@ -620,3 +621,18 @@ def process_mobilepay_import(database_session, squad, filename, file_data):
 
     database_session.flush()
     return mobilepay_import, {"created": created, "skipped": skipped, "unmatched": unmatched, "ambiguous": ambiguous}
+
+
+def commit_mobilepay_import(database_session, squad, filename, file_data):
+    """Commit an import, retrying when another worker inserted the same file first."""
+    for attempt in range(2):
+        try:
+            mobilepay_import, report = process_mobilepay_import(
+                database_session, squad, filename, file_data
+            )
+            database_session.commit()
+            return mobilepay_import, report
+        except IntegrityError:
+            database_session.rollback()
+            if attempt == 1:
+                raise

@@ -242,6 +242,20 @@ class MobilePayImport(Base):
     uploaded_at = Column(DateTime, default=utc_now, nullable=False)
 
 
+class MobilePayDriveState(Base):
+    __tablename__ = "mobilepay_drive_states"
+
+    squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), primary_key=True)
+    folder_id = Column(String(255), nullable=False)
+    last_checked_at = Column(DateTime, nullable=True)
+    last_worker_check_at = Column(DateTime, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
+    last_error = Column(String(80), nullable=True)
+    latest_file_id = Column(String(255), nullable=True)
+    latest_filename = Column(String(255), nullable=True)
+    latest_modified_time = Column(String(64), nullable=True)
+
+
 class MobilePayTransaction(Base):
     __tablename__ = "mobilepay_transactions"
     __table_args__ = (

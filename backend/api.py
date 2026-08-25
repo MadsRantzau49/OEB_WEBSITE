@@ -6,6 +6,17 @@ from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import and_, delete, func, or_, select
 
 from .db import get_db
+from .google_drive import (
+    MobilePayDriveError,
+    download_latest_xlsx,
+    mobilepay_drive_import_lock,
+)
+from .mobilepay import MobilePayImportError
+from .mobilepay_drive_worker import (
+    mobilepay_drive_status,
+    record_drive_failure,
+    record_drive_success,
+)
 from .models import (
     Club,
     DbuSource,
@@ -49,12 +60,12 @@ from .serializers import (
 )
 from .services import (
     clear_match_lineup_lock,
+    commit_mobilepay_import,
     create_fine_charge,
     effective_match_players,
     latest_season,
     map_player_to_existing_lineups,
     parse_amount_input,
-    process_mobilepay_import,
     refresh_match,
     rematch_mobilepay_transactions,
     reset_dbu_matches,
@@ -583,19 +594,25 @@ def authenticated_dashboard(squad_id):
         return error("season_not_found", 404)
     user = load_current_user()
     can_manage_roster = has_permission(database_session, user, squad_id, "manage_roster")
+    can_manage_finance = has_permission(database_session, user, squad_id, "manage_finance")
     include_matches = can_manage_roster or any(
         has_permission(database_session, user, squad_id, permission)
         for permission in ("manage_matches", "manage_dbu_sync")
     )
-    return jsonify(
-        dashboard_json(
-            database_session,
-            squad,
-            season,
-            include_matches=include_matches,
-            include_account_status=can_manage_roster,
-        )
+    payload = dashboard_json(
+        database_session,
+        squad,
+        season,
+        include_matches=include_matches,
+        include_account_status=can_manage_roster,
     )
+    if can_manage_finance:
+        payload["integrations"] = {
+            "mobilePayGoogleDrive": mobilepay_drive_status(
+                database_session, current_app.config, squad.id
+            )
+        }
+    return jsonify(payload)
 
 
 @api.get("/squads/<int:squad_id>/fine-requests")
@@ -1104,12 +1121,107 @@ def upload_mobilepay(squad_id):
     if upload is None or not upload.filename.lower().endswith(".xlsx"):
         return error("an_xlsx_file_is_required")
     try:
-        mobilepay_import, report = process_mobilepay_import(database_session, squad, upload.filename, upload.read())
-        database_session.commit()
-    except Exception as exc:
+        mobilepay_import, report = commit_mobilepay_import(
+            database_session, squad, upload.filename, upload.read()
+        )
+    except MobilePayImportError as exc:
         database_session.rollback()
         return error(str(exc))
+    except Exception:
+        database_session.rollback()
+        current_app.logger.exception("MobilePay import failed")
+        return error("mobilepay_import_failed", 500)
     return jsonify({"import": {"id": mobilepay_import.id, "filename": mobilepay_import.filename, "rows": mobilepay_import.rows_count, "status": mobilepay_import.status}, "report": report}), 201
+
+
+@api.post("/squads/<int:squad_id>/mobilepay-imports/google-drive/latest")
+@user_required
+def import_latest_mobilepay_from_google_drive(squad_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_finance")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+
+    configured_squad_id = current_app.config.get("MOBILEPAY_DRIVE_SQUAD_ID")
+    folder_id = str(current_app.config.get("MOBILEPAY_DRIVE_FOLDER_ID") or "").strip()
+    try:
+        configured_squad_id = int(configured_squad_id)
+    except (TypeError, ValueError):
+        return error("mobilepay_drive_not_configured", 503)
+    if configured_squad_id != squad.id:
+        return error("mobilepay_drive_not_configured_for_squad", 403)
+
+    # Release the read-only authorization transaction before waiting on Drive.
+    database_session.rollback()
+    try:
+        with mobilepay_drive_import_lock(
+            current_app.config.get("MOBILEPAY_DRIVE_LOCK_FILE", "/tmp/oeb-mobilepay-drive.lock")
+        ):
+            drive_file = download_latest_xlsx(
+                folder_id=folder_id,
+                credentials_file=current_app.config.get("MOBILEPAY_DRIVE_CREDENTIALS_FILE"),
+                timeout=current_app.config.get("MOBILEPAY_DRIVE_REQUEST_TIMEOUT", 20),
+                max_file_bytes=current_app.config.get(
+                    "MOBILEPAY_DRIVE_MAX_FILE_BYTES", current_app.config["MAX_CONTENT_LENGTH"]
+                ),
+            )
+            permission = permission_error(
+                database_session, load_current_user(), squad_id, "manage_finance"
+            )
+            if permission:
+                return permission
+            squad, squad_error = require_squad(database_session, squad_id)
+            if squad_error:
+                return squad_error
+            mobilepay_import, report = commit_mobilepay_import(
+                database_session, squad, drive_file.filename, drive_file.data
+            )
+            record_drive_success(
+                database_session, squad.id, folder_id, drive_file
+            )
+            database_session.commit()
+    except MobilePayDriveError as exc:
+        database_session.rollback()
+        if exc.code != "mobilepay_drive_import_in_progress":
+            record_drive_failure(database_session, squad_id, folder_id, exc.code)
+            database_session.commit()
+        current_app.logger.warning(
+            "Google Drive MobilePay import failed: %s", exc.detail or exc.code
+        )
+        return error(exc.code, exc.status)
+    except MobilePayImportError as exc:
+        database_session.rollback()
+        record_drive_failure(
+            database_session, squad_id, folder_id, "mobilepay_import_failed"
+        )
+        database_session.commit()
+        return error(str(exc))
+    except Exception:
+        database_session.rollback()
+        record_drive_failure(
+            database_session, squad_id, folder_id, "mobilepay_import_failed"
+        )
+        database_session.commit()
+        current_app.logger.exception("Google Drive MobilePay import failed")
+        return error("mobilepay_import_failed", 500)
+    return jsonify(
+        {
+            "source": {
+                "filename": drive_file.filename,
+                "modifiedTime": drive_file.modified_time,
+            },
+            "import": {
+                "id": mobilepay_import.id,
+                "filename": mobilepay_import.filename,
+                "rows": mobilepay_import.rows_count,
+                "status": mobilepay_import.status,
+            },
+            "report": report,
+        }
+    ), 201
 
 
 @api.get("/squads/<int:squad_id>/transactions")

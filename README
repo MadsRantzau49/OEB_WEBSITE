@@ -162,51 +162,62 @@ The public Box number and the Box share link are different:
 
 The share link lets the PWA open MobilePay with the player’s amount and name already filled in. If only the Box number is configured, the app offers to copy the payment information instead.
 
-Upload the latest `.xlsx` export under `Administration -> MobilePay`. Existing transactions are deduplicated, so uploading an overlapping export does not create duplicate payments.
+The `mobilepay-drive` container checks Google Drive automatically and imports the newest `.xlsx` export. `Kontrollér og importér nu` under `Administration -> MobilePay` starts the same check immediately, and manual upload remains available as a fallback. Existing transactions are deduplicated, so fetching the same or an overlapping export does not create duplicate payments.
 
 If players are added or their MobilePay names change after an upload, use `Tjek spillernavne igen`. It rematches only unassigned incoming payments and does not replace existing or manual assignments.
 
-### Automatic Google Drive import
+### Automatic Google Drive setup
 
-MobilePay does not provide a public transaction API for a private MobilePay Box. The available Vipps MobilePay APIs are business products and do not expose Box `1783QN`. The optional Google Drive worker removes the manual download/upload steps instead:
+MobilePay does not provide a public transaction API for a private MobilePay Box. The available Vipps MobilePay APIs are business products and do not expose Box `1783QN`. The app therefore watches the configured Google Drive folder with a read-only service account:
 
 ```text
-MobilePay on Android -> Share export to Drive -> server imports XLSX automatically
+https://drive.google.com/drive/folders/1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1
 ```
 
 One-time setup:
 
-1. Create a Google Drive folder named `MobilePay-Upload`.
-2. Run this from the project directory:
-
-```bash
-docker run --rm -it \
-  -v "$PWD/secrets:/config/rclone" \
-  rclone/rclone:latest config
-```
-
-3. Create a Drive remote named `gdrive` and complete the Google authorization shown by rclone.
-4. Add these settings to `.env`:
+1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a project and enable the Google Drive API.
+2. Under `IAM & Admin -> Service Accounts`, create a service account. It needs no Google Cloud project role.
+3. Open that service account, create a JSON key, and save the downloaded file here:
 
 ```text
-MOBILEPAY_DRIVE_REMOTE=gdrive:MobilePay-Upload
-MOBILEPAY_DRIVE_SYNC_SECONDS=60
-MOBILEPAY_INBOX_SCAN_SECONDS=30
-MOBILEPAY_INBOX_SQUAD_ID=1
+secrets/google-drive/service-account.json
 ```
 
-5. Start the optional workers:
+The `secrets` directory ignores this file, so the key is not committed to Git or copied into the Docker image.
+
+Restrict the local key and environment file so other host users cannot read them:
 
 ```bash
-docker-compose --profile google-drive up -d --build
+chmod 700 secrets secrets/google-drive
+chmod 600 .env secrets/google-drive/service-account.json
 ```
 
-On Android, export from MobilePay and choose `Drive -> MobilePay-Upload`. The server checks Drive every minute and imports new `.xlsx` files once. Existing import hashes and transaction fingerprints prevent repeat imports.
+4. Open the JSON key, copy its `client_email`, and share the Drive folder above with that address as `Viewer`. Creating the key alone does not grant access to any Drive files.
+5. Add or verify these settings in `.env`. The first squad normally has ID `1`; change it if this folder belongs to another squad:
 
-Check the automation with:
+```text
+MOBILEPAY_DRIVE_FOLDER_ID=1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1
+MOBILEPAY_DRIVE_SQUAD_ID=1
+MOBILEPAY_DRIVE_REQUEST_TIMEOUT=20
+MOBILEPAY_DRIVE_AUTO_IMPORT=1
+MOBILEPAY_DRIVE_POLL_SECONDS=60
+```
+
+6. Rebuild and start the full stack, including the Drive worker:
 
 ```bash
-docker-compose logs -f mobilepay-drive mobilepay-inbox
+docker-compose up -d --build
+```
+
+On Android, export from MobilePay and save the `.xlsx` directly inside that Drive folder. The worker selects the direct `.xlsx` child with the newest modification time, enforces the 10 MB upload limit, and imports it through the normal deduplicating MobilePay flow.
+
+An owner or a user with the `MobilePay` permission can open `Administration -> MobilePay` to see whether automatic polling is running, the latest check and file, and any configuration error. The card also displays the exact service-account email that must have `Viewer` access. Imported rows are shown only when their dates fall inside the selected season.
+
+Check the worker directly with:
+
+```bash
+docker-compose logs -f mobilepay-drive
 ```
 
 If the club later changes to a MobilePay business agreement, the backend can be connected to the official business API, but that requires business credentials and is a different payment product.

@@ -25,8 +25,18 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       DBU_REQUEST_TIMEOUT: ${DBU_REQUEST_TIMEOUT:-20}
+      MOBILEPAY_DRIVE_FOLDER_ID: ${MOBILEPAY_DRIVE_FOLDER_ID:-1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1}
+      MOBILEPAY_DRIVE_SQUAD_ID: ${MOBILEPAY_DRIVE_SQUAD_ID:-1}
+      MOBILEPAY_DRIVE_CREDENTIALS_FILE: ${MOBILEPAY_DRIVE_CREDENTIALS_FILE:-/run/secrets/google-drive/service-account.json}
+      MOBILEPAY_DRIVE_REQUEST_TIMEOUT: ${MOBILEPAY_DRIVE_REQUEST_TIMEOUT:-20}
+      MOBILEPAY_DRIVE_AUTO_IMPORT: ${MOBILEPAY_DRIVE_AUTO_IMPORT:-1}
+      MOBILEPAY_DRIVE_POLL_SECONDS: ${MOBILEPAY_DRIVE_POLL_SECONDS:-60}
+      MOBILEPAY_DRIVE_LOCK_FILE: /run/locks/mobilepay-drive.lock
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
       SESSION_DAYS: ${SESSION_DAYS:-365}
+    volumes:
+      - ./secrets/google-drive:/run/secrets/google-drive:ro
+      - mobilepay_locks:/run/locks
     depends_on:
       init-db:
         condition: service_completed_successfully
@@ -65,35 +75,25 @@ services:
         condition: service_healthy
 
   mobilepay-drive:
-    image: rclone/rclone:latest
-    profiles: ["google-drive"]
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - while true; do rclone copy "$${MOBILEPAY_DRIVE_REMOTE}" /inbox --include "*.xlsx"; sleep "$${MOBILEPAY_DRIVE_SYNC_SECONDS}"; done
-    environment:
-      MOBILEPAY_DRIVE_REMOTE: ${MOBILEPAY_DRIVE_REMOTE:-gdrive:MobilePay-Upload}
-      MOBILEPAY_DRIVE_SYNC_SECONDS: ${MOBILEPAY_DRIVE_SYNC_SECONDS:-60}
-    volumes:
-      - ./secrets/rclone.conf:/config/rclone/rclone.conf:ro
-      - mobilepay_inbox:/inbox
-
-  mobilepay-inbox:
     build:
       context: .
       dockerfile: Dockerfile.api
-    profiles: ["google-drive"]
     restart: unless-stopped
-    command: ["sh", "-c", "while true; do python -m backend.mobilepay_inbox; sleep $${MOBILEPAY_INBOX_SCAN_SECONDS:-30}; done"]
+    command: ["python", "-m", "backend.mobilepay_drive_worker"]
     environment:
       AUTO_CREATE_SCHEMA: "0"
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
-      MOBILEPAY_INBOX_PATH: /inbox
-      MOBILEPAY_INBOX_SCAN_SECONDS: ${MOBILEPAY_INBOX_SCAN_SECONDS:-30}
-      MOBILEPAY_INBOX_SQUAD_ID: ${MOBILEPAY_INBOX_SQUAD_ID:-1}
+      MOBILEPAY_DRIVE_FOLDER_ID: ${MOBILEPAY_DRIVE_FOLDER_ID:-1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1}
+      MOBILEPAY_DRIVE_SQUAD_ID: ${MOBILEPAY_DRIVE_SQUAD_ID:-1}
+      MOBILEPAY_DRIVE_CREDENTIALS_FILE: ${MOBILEPAY_DRIVE_CREDENTIALS_FILE:-/run/secrets/google-drive/service-account.json}
+      MOBILEPAY_DRIVE_REQUEST_TIMEOUT: ${MOBILEPAY_DRIVE_REQUEST_TIMEOUT:-20}
+      MOBILEPAY_DRIVE_AUTO_IMPORT: ${MOBILEPAY_DRIVE_AUTO_IMPORT:-1}
+      MOBILEPAY_DRIVE_POLL_SECONDS: ${MOBILEPAY_DRIVE_POLL_SECONDS:-60}
+      MOBILEPAY_DRIVE_LOCK_FILE: /run/locks/mobilepay-drive.lock
     volumes:
-      - mobilepay_inbox:/inbox
+      - ./secrets/google-drive:/run/secrets/google-drive:ro
+      - mobilepay_locks:/run/locks
     depends_on:
       init-db:
         condition: service_completed_successfully
@@ -120,4 +120,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
-  mobilepay_inbox:
+  mobilepay_locks:
