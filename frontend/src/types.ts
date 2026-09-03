@@ -6,6 +6,7 @@ export type Permission =
   | "manage_roster"
   | "manage_matches"
   | "manage_dbu_sync"
+  | "manage_holdsport"
   | "manage_permissions";
 
 export interface User {
@@ -70,6 +71,8 @@ export interface Player {
   name: string;
   dbuName: string;
   mobilePayName: string | null;
+  holdsportName: string | null;
+  holdsportAutoMatch: boolean;
   active: boolean;
   hasAccount?: boolean;
   totalFines: number;
@@ -88,6 +91,9 @@ export interface Rule {
   amountCents: number;
   perMinuteAmount: number;
   perMinuteAmountCents: number;
+  leadDays: number;
+  leadHours: number;
+  leadMinutes: number;
   type: string;
   active: boolean;
 }

@@ -70,6 +70,8 @@ class Player(Base):
     squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), nullable=False, index=True)
     dbu_name = Column(String(255), nullable=False)
     mobilepay_name = Column(String(255), nullable=True)
+    holdsport_name = Column(String(255), nullable=True)
+    holdsport_auto_match = Column(Boolean, nullable=False, default=True)
     active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
 
@@ -133,6 +135,9 @@ class FineRule(Base):
     description = Column(Text, nullable=False, default="")
     amount_cents = Column(Integer, nullable=False, default=0)
     per_minute_amount_cents = Column(Integer, nullable=False, default=0)
+    lead_days = Column(Integer, nullable=False, default=0)
+    lead_hours = Column(Integer, nullable=False, default=0)
+    lead_minutes = Column(Integer, nullable=False, default=0)
     rule_type = Column(String(40), nullable=False, default="TEAM_FINE")
     active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -226,6 +231,73 @@ class FineCharge(Base):
     amount_cents = Column(Integer, nullable=False)
     charge_date = Column(Date, default=date.today, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
+
+
+class HoldsportSyncState(Base):
+    __tablename__ = "holdsport_sync_states"
+
+    squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), primary_key=True)
+    team_id = Column(String(80), nullable=True)
+    last_checked_at = Column(DateTime, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    activities_count = Column(Integer, nullable=False, default=0)
+    no_rsvp_count = Column(Integer, nullable=False, default=0)
+    charges_created = Column(Integer, nullable=False, default=0)
+
+
+class HoldsportActivity(Base):
+    __tablename__ = "holdsport_activities"
+    __table_args__ = (
+        UniqueConstraint("squad_id", "holdsport_id", name="uq_holdsport_activity_squad_id"),
+        Index("ix_holdsport_activity_squad_date", "squad_id", "activity_date"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), nullable=False, index=True)
+    season_id = Column(Integer, ForeignKey("seasons.id", ondelete="SET NULL"), nullable=True)
+    holdsport_id = Column(String(80), nullable=False)
+    title = Column(String(500), nullable=False)
+    activity_type = Column(String(30), nullable=False)
+    activity_date = Column(Date, nullable=False)
+    starts_at = Column(DateTime, nullable=False)
+    feed_starts_at = Column(DateTime, nullable=True)
+    url = Column(String(500), nullable=False)
+    last_synced_at = Column(DateTime, default=utc_now, nullable=False)
+    details_synced_at = Column(DateTime, nullable=True)
+    deadline_captured_at = Column(DateTime, nullable=True)
+    deadline_date = Column(Date, nullable=True)
+    deadline_at = Column(DateTime, nullable=True)
+
+
+class HoldsportPlayerMapping(Base):
+    __tablename__ = "holdsport_player_mappings"
+    __table_args__ = (
+        UniqueConstraint("squad_id", "holdsport_user_id", name="uq_holdsport_mapping_squad_user"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    squad_id = Column(Integer, ForeignKey("squads.id", ondelete="CASCADE"), nullable=False, index=True)
+    holdsport_user_id = Column(String(80), nullable=False)
+    source_name = Column(String(255), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True, index=True)
+    manual = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class HoldsportParticipant(Base):
+    __tablename__ = "holdsport_participants"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "holdsport_user_id", name="uq_holdsport_participant_activity_user"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    activity_id = Column(Integer, ForeignKey("holdsport_activities.id", ondelete="CASCADE"), nullable=False, index=True)
+    holdsport_user_id = Column(String(80), nullable=False)
+    source_name = Column(String(255), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_coach = Column(Boolean, nullable=False, default=False)
+    fine_processed_at = Column(DateTime, nullable=True)
 
 
 class MobilePayImport(Base):
