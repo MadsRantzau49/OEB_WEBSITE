@@ -1,2 +1,27 @@
-#Start with current DB
+# Start With Current Database
+
+```sh
 docker compose up -d --build
+```
+
+## Holdsport
+
+Set `HOLDSPORT_USERNAME`, `HOLDSPORT_PASSWORD`, and `HOLDSPORT_TEAM_ID` in
+`.env`. The team ID is required so the worker can verify that Holdsport switched
+to the correct team. `HOLDSPORT_SQUAD_ID` selects the local squad that receives
+the integration.
+
+Create separate active fine rules for Holdsport training and matches. Set each
+amount and the number of days, hours, and minutes before activity start in the
+administrator panel. Grant `Holdsport` permission to administrators who should
+see RSVP data.
+
+The `holdsport-cron` service checks every minute and applies a rule as soon as
+its configured lead time is reached. It refreshes the full RSVP overview hourly.
+Repeated runs are safe and never fine Holdsport rows marked as coaches.
+
+The Holdsport overview shows the fine created for each participant. Administrators
+can map unmatched Holdsport names directly to active players, remove every fine
+created by one activity, or fetch the current RSVP list and replace that activity's
+old fines by retriggering it. A manual trigger uses the current active season when
+the future activity is outside the season's configured dates.

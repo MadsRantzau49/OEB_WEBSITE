@@ -14,6 +14,13 @@ def env_float(name, default):
         return float(default)
 
 
+def env_int(name, default):
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return int(default)
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key")
     DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'app.db'}")
@@ -27,6 +34,16 @@ class Config:
     CORS_ORIGIN = os.getenv("CORS_ORIGIN", "http://localhost:5173")
     DBU_REQUEST_TIMEOUT = float(os.getenv("DBU_REQUEST_TIMEOUT", "20"))
     DBU_BASE_URL = os.getenv("DBU_BASE_URL", "https://www.dbu.dk")
+    HOLDSPORT_BASE_URL = os.getenv("HOLDSPORT_BASE_URL", "https://www.holdsport.dk")
+    HOLDSPORT_USERNAME = os.getenv("HOLDSPORT_USERNAME", "")
+    HOLDSPORT_PASSWORD = os.getenv("HOLDSPORT_PASSWORD", "")
+    HOLDSPORT_TEAM_ID = os.getenv("HOLDSPORT_TEAM_ID", "")
+    HOLDSPORT_SQUAD_ID = env_int("HOLDSPORT_SQUAD_ID", 1)
+    HOLDSPORT_REQUEST_TIMEOUT = env_float("HOLDSPORT_REQUEST_TIMEOUT", 20)
+    HOLDSPORT_OVERVIEW_DAYS = env_int("HOLDSPORT_OVERVIEW_DAYS", 30)
+    HOLDSPORT_POLL_SECONDS = env_float("HOLDSPORT_POLL_SECONDS", 60)
+    HOLDSPORT_REFRESH_SECONDS = env_float("HOLDSPORT_REFRESH_SECONDS", 3600)
+    HOLDSPORT_TIME_ZONE = os.getenv("HOLDSPORT_TIME_ZONE", "Europe/Copenhagen")
     MOBILEPAY_DRIVE_FOLDER_ID = os.getenv(
         "MOBILEPAY_DRIVE_FOLDER_ID", "1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1"
     )

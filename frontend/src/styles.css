@@ -181,6 +181,8 @@ p { color: var(--muted); line-height: 1.5; }
 .save-button, .secondary-save { margin-top: 10px; }
 .secondary-save { background: white; }
 .two-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.three-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rule-lead-help { margin-top: 12px; }
 .upload { display: block; margin-top: 18px; border: 1px dashed var(--green); border-radius: 11px; padding: 15px; color: var(--green); font-weight: 800; text-align: center; cursor: pointer; }
 .upload input { display: none; }
 .mobilepay-drive-import { margin-bottom: 18px; border: 1px solid #b8d1c8; border-radius: 11px; padding: 14px; background: #f4faf7; }
@@ -196,6 +198,37 @@ p { color: var(--muted); line-height: 1.5; }
 .drive-share-help { margin: 12px 0 0; font-size: 11px; }
 .drive-share-help code { overflow-wrap: anywhere; color: var(--ink); }
 .mobilepay-drive-import .save-button { margin-top: 12px; }
+.holdsport-status { margin-bottom: 16px; border: 1px solid #b8d1c8; border-radius: 11px; padding: 14px; background: #f4faf7; }
+.holdsport-status.has-error { border-color: #e2b3a8; background: #fff7f4; }
+.holdsport-warning { margin: 10px 0 0; color: var(--red); font-size: 12px; font-weight: 750; }
+.holdsport-explanation { margin-top: 12px; border-radius: 9px; padding: 11px; background: rgba(255,255,255,.75); font-size: 12px; line-height: 1.5; }
+.holdsport-explanation p { margin: 5px 0 0; }
+.holdsport-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.holdsport-rules span { border-radius: 8px; padding: 9px; background: var(--ink); color: white; font-size: 10px; }
+.holdsport-rules strong { display: block; margin-top: 3px; font-size: 11px; }
+.holdsport-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.holdsport-stats span { border-radius: 8px; padding: 9px; background: rgba(255,255,255,.72); color: var(--muted); font-size: 10px; }
+.holdsport-stats strong { display: block; margin-top: 3px; color: var(--ink); font-size: 12px; }
+.holdsport-sync-help { margin-top: 7px; }
+.holdsport-activities > details { margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.holdsport-activities summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 54px; padding: 11px 12px; list-style: none; cursor: pointer; }
+.holdsport-activities summary::-webkit-details-marker { display: none; }
+.holdsport-activities summary span, .holdsport-activities summary small { display: block; min-width: 0; }
+.holdsport-activities summary small { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 500; }
+.holdsport-activities summary strong { display: grid; place-items: center; min-width: 28px; height: 28px; border-radius: 50%; background: var(--lime); font-size: 11px; }
+.holdsport-activity-body { border-top: 1px solid var(--line); padding: 12px; }
+.holdsport-event-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.holdsport-event-actions a { color: var(--green); font-size: 12px; font-weight: 750; }
+.holdsport-event-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.holdsport-event-actions button { min-height: 36px; border: 0; border-radius: 8px; padding: 7px 10px; color: white; font-size: 11px; font-weight: 800; }
+.holdsport-event-actions .fine-now, .holdsport-event-actions .retrigger-fines { background: var(--green); }
+.holdsport-event-actions .remove-fines { background: var(--red); }
+.holdsport-empty { margin-top: 12px; }
+.holdsport-participants > div { min-height: 52px; border-top: 1px solid var(--line); padding: 9px 0; }
+.holdsport-participant { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 210px); align-items: center; gap: 12px; }
+.holdsport-participants span, .holdsport-participants small { display: block; min-width: 0; }
+.holdsport-participants small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.holdsport-participants .holdsport-fine { color: var(--green); font-weight: 750; }
 .admin-rows { margin: 8px 0 18px; }
 .admin-rows h4 { margin: 0 0 8px; }
 .rule-management { margin-bottom: 20px; }
@@ -268,6 +301,12 @@ p { color: var(--muted); line-height: 1.5; }
 .suggestions > p { margin: 4px 0 10px; font-size: 12px; }
 .suggestions > button { display: flex; justify-content: space-between; width: 100%; border: 0; border-top: 1px solid var(--line); padding: 11px 0; background: none; text-align: left; }
 .suggestions > button span { color: var(--green); font-size: 18px; font-weight: 800; }
+
+@media (max-width: 520px) {
+  .holdsport-event-actions { display: block; }
+  .holdsport-event-actions > div { justify-content: flex-start; margin-top: 9px; }
+  .holdsport-participant { grid-template-columns: 1fr; }
+}
 
 @media (min-width: 680px) {
   .app-shell { padding-left: 24px; padding-right: 24px; }

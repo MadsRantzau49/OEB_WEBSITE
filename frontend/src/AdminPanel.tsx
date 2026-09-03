@@ -1,5 +1,6 @@
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api, apiErrorMessage, jsonBody } from "./api";
+import HoldsportAdmin from "./HoldsportAdmin";
 import type { Dashboard, FineRequest, Match, MobilePayGoogleDriveIntegration, Permission, PermissionUser, Rule, Transaction, User } from "./types";
 
 const permissionLabels: Record<Permission, string> = {
@@ -10,6 +11,7 @@ const permissionLabels: Record<Permission, string> = {
   manage_roster: "Spillere",
   manage_matches: "Kampe og vasker",
   manage_dbu_sync: "DBU-opdatering",
+  manage_holdsport: "Holdsport",
   manage_permissions: "Rettigheder",
 };
 const permissionKeys = Object.keys(permissionLabels) as Permission[];
@@ -21,6 +23,8 @@ const fineRuleTypes = [
   { value: "LOSE_FINE", label: "Nederlag" },
   { value: "SCORED_GOAL", label: "Mål scoret" },
   { value: "CONCEDED_GOAL", label: "Mål indkasseret" },
+  { value: "HOLDSPORT_TRAINING_NO_RSVP", label: 'Holdsport træning "Ej tilkendegivet"' },
+  { value: "HOLDSPORT_MATCH_NO_RSVP", label: 'Holdsport kamp "Ej tilkendegivet"' },
 ];
 type SyncReport = { createdMatches: number; updatedMatches: number; skippedMatches: number; deletedMatches?: number; errors: string[] };
 type MatchRefreshReport = { status: string; chargesCreated?: number; chargesUpdated?: number; chargesRemoved?: number; error?: string };
@@ -99,6 +103,7 @@ export default function AdminPanel({ dashboard, user, onFailure, onRefresh }: { 
         {allowed("manage_roster") && <Tool title="Spillere"><RosterTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_matches") && <Tool title="Kampe, spillere og vasker"><MatchTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_dbu_sync") && <Tool title="DBU-links"><DbuTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
+        {allowed("manage_holdsport") && <Tool title="Holdsport"><HoldsportAdmin dashboard={dashboard} onError={onFailure} onChanged={onRefresh} /></Tool>}
         {allowed("manage_fine_rules") && <Tool title="Bødetakster"><RuleTool dashboard={dashboard} onError={onFailure} onSaved={onRefresh} /></Tool>}
         {allowed("manage_permissions") && <Tool title="Brugerrettigheder"><PermissionTool squadId={squadId} currentUser={user} onError={onFailure} /></Tool>}
         {user.isOwner && <Tool title="Nyt hold"><NewSquad onError={onFailure} /></Tool>}
@@ -189,10 +194,11 @@ function FinanceTool({ dashboard, transactions, onError, onSaved }: { dashboard:
 function RosterTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [dbuName, setDbuName] = useState("");
   const [mobilePayName, setMobilePayName] = useState("");
+  const [holdsportName, setHoldsportName] = useState("");
   const [search, setSearch] = useState("");
   async function submit(event: FormEvent) {
     event.preventDefault();
-    try { await api(`/squads/${dashboard.squad.id}/players`, jsonBody({ dbuName, mobilePayName })); setDbuName(""); setMobilePayName(""); onSaved(); }
+    try { await api(`/squads/${dashboard.squad.id}/players`, jsonBody({ dbuName, mobilePayName, holdsportName })); setDbuName(""); setMobilePayName(""); setHoldsportName(""); onSaved(); }
     catch (reason) { onError(reason); }
   }
   async function addSuggested(name: string) {
@@ -201,15 +207,16 @@ function RosterTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onE
   }
   const suggestions = Array.from(new Set(dashboard.matches.flatMap((match) => match.participants.filter((item) => item.status === "unmatched").map((item) => item.name)))).sort();
   const visiblePlayers = dashboard.players.filter((player) => player.name.toLocaleLowerCase("da-DK").includes(search.trim().toLocaleLowerCase("da-DK")));
-  return <><form onSubmit={submit}><Field label="Navn præcis som på DBU" value={dbuName} onChange={setDbuName} required /><Field label="Navn i MobilePay" value={mobilePayName} onChange={setMobilePayName} /><button className="save-button">Tilføj spiller manuelt</button></form>{suggestions.length > 0 && <div className="suggestions"><b>Ikke oprettet endnu</b><p>DBU-navnene får først bøder, når du tilføjer dem.</p>{suggestions.map((name) => <button key={name} type="button" onClick={() => void addSuggested(name)}>{name}<span>+</span></button>)}</div>}<div className="player-management"><Field label={`${dashboard.players.length} spillere`} hint="Søg for at redigere eller slette" value={search} onChange={setSearch} />{visiblePlayers.map((player) => <PlayerEditor key={`${player.id}-${player.dbuName}-${player.mobilePayName}`} player={player} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{visiblePlayers.length === 0 && <p className="empty-copy">Ingen spillere matcher.</p>}</div></>;
+  return <><form onSubmit={submit}><Field label="Navn præcis som på DBU" value={dbuName} onChange={setDbuName} required /><Field label="Navn i MobilePay" value={mobilePayName} onChange={setMobilePayName} /><Field label="Navn på Holdsport" value={holdsportName} onChange={setHoldsportName} /><button className="save-button">Tilføj spiller manuelt</button></form>{suggestions.length > 0 && <div className="suggestions"><b>Ikke oprettet endnu</b><p>DBU-navnene får først bøder, når du tilføjer dem.</p>{suggestions.map((name) => <button key={name} type="button" onClick={() => void addSuggested(name)}>{name}<span>+</span></button>)}</div>}<div className="player-management"><Field label={`${dashboard.players.length} spillere`} hint="Søg for at redigere eller slette" value={search} onChange={setSearch} />{visiblePlayers.map((player) => <PlayerEditor key={`${player.id}-${player.dbuName}-${player.mobilePayName}-${player.holdsportName}`} player={player} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{visiblePlayers.length === 0 && <p className="empty-copy">Ingen spillere matcher.</p>}</div></>;
 }
 
 function PlayerEditor({ player, squadId, onError, onSaved }: { player: Dashboard["players"][number]; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
   const [dbuName, setDbuName] = useState(player.dbuName);
   const [mobilePayName, setMobilePayName] = useState(player.mobilePayName || "");
+  const [holdsportName, setHoldsportName] = useState(player.holdsportName || "");
   async function save(event: FormEvent) {
     event.preventDefault();
-    try { await api(`/squads/${squadId}/players/${player.id}`, { method: "PATCH", body: JSON.stringify({ dbuName, mobilePayName }) }); onSaved(); }
+    try { await api(`/squads/${squadId}/players/${player.id}`, { method: "PATCH", body: JSON.stringify({ dbuName, mobilePayName, holdsportName }) }); onSaved(); }
     catch (reason) { onError(reason); }
   }
   async function removeAccount() {
@@ -222,7 +229,7 @@ function PlayerEditor({ player, squadId, onError, onSaved }: { player: Dashboard
     try { await api(`/squads/${squadId}/players/${player.id}`, { method: "DELETE" }); onSaved(); }
     catch (reason) { onError(reason); }
   }
-  return <details className="player-editor"><summary><span>{player.name}<small>{player.mobilePayName || "Intet MobilePay-navn"}</small></span><b>{money(player.balance)}</b></summary><form onSubmit={save}><Field label="DBU-navn" value={dbuName} onChange={setDbuName} required /><Field label="MobilePay-navn" value={mobilePayName} onChange={setMobilePayName} /><button className="secondary-save">Gem spiller</button><div className="player-delete-options"><b>Sletning</b><p>Vælg om kun login eller hele spilleren skal fjernes.</p><button className="secondary-save" type="button" disabled={!player.hasAccount} onClick={() => void removeAccount()}>{player.hasAccount ? "Slet brugerlogin" : "Intet brugerlogin tilknyttet"}</button><small>Bevarer spilleren, betalinger og bøder.</small><button className="danger-button" type="button" onClick={() => void removePlayer()}>Slet spiller helt</button><small>Fjerner også bruger og bøder. Betalinger flyttes til “Mangler spiller”.</small></div></form></details>;
+  return <details className="player-editor"><summary><span>{player.name}<small>{player.mobilePayName || "Intet MobilePay-navn"} · {player.holdsportName || "Intet Holdsport-navn"}</small></span><b>{money(player.balance)}</b></summary><form onSubmit={save}><Field label="DBU-navn" value={dbuName} onChange={setDbuName} required /><Field label="MobilePay-navn" value={mobilePayName} onChange={setMobilePayName} /><Field label="Holdsport-navn" hint="Udfyldes automatisk ved identiske navne. Et gemt tomt felt slår automatch fra." value={holdsportName} onChange={setHoldsportName} /><button className="secondary-save">Gem spiller</button><div className="player-delete-options"><b>Sletning</b><p>Vælg om kun login eller hele spilleren skal fjernes.</p><button className="secondary-save" type="button" disabled={!player.hasAccount} onClick={() => void removeAccount()}>{player.hasAccount ? "Slet brugerlogin" : "Intet brugerlogin tilknyttet"}</button><small>Bevarer spilleren, betalinger og bøder.</small><button className="danger-button" type="button" onClick={() => void removePlayer()}>Slet spiller helt</button><small>Fjerner også bruger og bøder. Betalinger flyttes til “Mangler spiller”.</small></div></form></details>;
 }
 
 function MatchTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -431,14 +438,24 @@ function RuleTool({ dashboard, onError, onSaved }: { dashboard: Dashboard; onErr
   const [amount, setAmount] = useState("");
   const [perMinuteAmount, setPerMinuteAmount] = useState("");
   const [type, setType] = useState("TEAM_FINE");
+  const [leadDays, setLeadDays] = useState("1");
+  const [leadHours, setLeadHours] = useState("0");
+  const [leadMinutes, setLeadMinutes] = useState("0");
+  const holdsportType = type === "HOLDSPORT_TRAINING_NO_RSVP" || type === "HOLDSPORT_MATCH_NO_RSVP";
+  function changeType(value: string) {
+    setType(value);
+    if (value === "HOLDSPORT_TRAINING_NO_RSVP") setLeadDays("1");
+    if (value === "HOLDSPORT_MATCH_NO_RSVP") setLeadDays("5");
+    setLeadHours("0"); setLeadMinutes("0");
+  }
   async function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, description, amount, type, ...(type === "LATE_FINE" ? { perMinuteAmount } : {}) }));
+      await api(`/squads/${dashboard.squad.id}/fine-rules`, jsonBody({ name, description, amount, type, ...(type === "LATE_FINE" ? { perMinuteAmount } : {}), ...(holdsportType ? { leadDays, leadHours, leadMinutes } : {}) }));
       setName(""); setDescription(""); setAmount(""); setPerMinuteAmount(""); setType("TEAM_FINE"); onSaved();
     } catch (reason) { onError(reason); }
   }
-  return <><div className="rule-management">{dashboard.rules.map((rule) => <RuleEditor key={`${rule.id}-${rule.name}-${rule.description}-${rule.amount}-${rule.perMinuteAmount}`} rule={rule} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{dashboard.rules.length === 0 && <p className="empty-copy">Ingen bødetakster endnu.</p>}</div><form className="new-rule-form" onSubmit={submit}><b>Tilføj ny takst</b><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}<Select label="Type" value={type} onChange={setType} options={fineRuleTypes} /><button className="save-button">Tilføj takst</button></form></>;
+  return <><div className="rule-management">{dashboard.rules.map((rule) => <RuleEditor key={`${rule.id}-${rule.name}-${rule.description}-${rule.amount}-${rule.perMinuteAmount}-${rule.leadDays}-${rule.leadHours}-${rule.leadMinutes}`} rule={rule} squadId={dashboard.squad.id} onError={onError} onSaved={onSaved} />)}{dashboard.rules.length === 0 && <p className="empty-copy">Ingen bødetakster endnu.</p>}</div><form className="new-rule-form" onSubmit={submit}><b>Tilføj ny takst</b><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}<Select label="Type" value={type} onChange={changeType} options={fineRuleTypes} />{holdsportType && <><p className="help-text rule-lead-help">Bøden udløses dette tidsrum før aktivitetens start.</p><div className="three-fields"><Field label="Dage før" type="number" min="0" step="1" value={leadDays} onChange={setLeadDays} required /><Field label="Timer før" type="number" min="0" step="1" value={leadHours} onChange={setLeadHours} required /><Field label="Minutter før" type="number" min="0" step="1" value={leadMinutes} onChange={setLeadMinutes} required /></div></>}<button className="save-button">Tilføj takst</button></form></>;
 }
 
 function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: number; onError: (reason: unknown) => void; onSaved: () => void }) {
@@ -446,12 +463,16 @@ function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: 
   const [description, setDescription] = useState(rule.description);
   const [amount, setAmount] = useState(String(rule.amount));
   const [perMinuteAmount, setPerMinuteAmount] = useState(String(rule.perMinuteAmount));
+  const [leadDays, setLeadDays] = useState(String(rule.leadDays));
+  const [leadHours, setLeadHours] = useState(String(rule.leadHours));
+  const [leadMinutes, setLeadMinutes] = useState(String(rule.leadMinutes));
   const [busy, setBusy] = useState(false);
   const typeLabel = fineRuleTypes.find((item) => item.value === rule.type)?.label || rule.type;
+  const holdsportType = rule.type === "HOLDSPORT_TRAINING_NO_RSVP" || rule.type === "HOLDSPORT_MATCH_NO_RSVP";
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ name, description, amount, ...(rule.type === "LATE_FINE" ? { perMinuteAmount } : {}) }) });
+      await api(`/squads/${squadId}/fine-rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ name, description, amount, ...(rule.type === "LATE_FINE" ? { perMinuteAmount } : {}), ...(holdsportType ? { leadDays, leadHours, leadMinutes } : {}) }) });
       onSaved();
     } catch (reason) { onError(reason); } finally { setBusy(false); }
   }
@@ -463,7 +484,7 @@ function RuleEditor({ rule, squadId, onError, onSaved }: { rule: Rule; squadId: 
       onSaved();
     } catch (reason) { onError(reason); setBusy(false); }
   }
-  return <details className="rule-editor"><summary><span><b>{rule.name}</b><small>{typeLabel}{rule.description ? ` · ${rule.description}` : ""}</small></span><strong>{rule.type === "LATE_FINE" ? `${money(rule.amount)} + ${money(rule.perMinuteAmount)}/min.` : money(rule.amount)}</strong></summary><form onSubmit={save}><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={rule.type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{rule.type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}<p className="help-text">Type: {typeLabel}</p><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bødetakst</button></form></details>;
+  return <details className="rule-editor"><summary><span><b>{rule.name}</b><small>{typeLabel}{holdsportType ? ` · ${rule.leadDays}d ${rule.leadHours}t ${rule.leadMinutes}m før` : ""}{rule.description ? ` · ${rule.description}` : ""}</small></span><strong>{rule.type === "LATE_FINE" ? `${money(rule.amount)} + ${money(rule.perMinuteAmount)}/min.` : money(rule.amount)}</strong></summary><form onSubmit={save}><Field label="Navn" value={name} onChange={setName} required /><TextArea label="Beskrivelse" value={description} onChange={setDescription} /><Field label={rule.type === "LATE_FINE" ? "Fast beløb" : "Beløb"} type="number" value={amount} onChange={setAmount} required />{rule.type === "LATE_FINE" && <Field label="Beløb pr. minut" type="number" value={perMinuteAmount} onChange={setPerMinuteAmount} required />}{holdsportType && <><p className="help-text rule-lead-help">Automatisk kontrol før aktivitetens start:</p><div className="three-fields"><Field label="Dage" type="number" min="0" step="1" value={leadDays} onChange={setLeadDays} required /><Field label="Timer" type="number" min="0" step="1" value={leadHours} onChange={setLeadHours} required /><Field label="Minutter" type="number" min="0" step="1" value={leadMinutes} onChange={setLeadMinutes} required /></div></>}<p className="help-text">Type: {typeLabel}</p><button className="secondary-save" disabled={busy}>{busy ? "Gemmer…" : "Gem ændringer"}</button><button className="danger-button" type="button" disabled={busy} onClick={() => void remove()}>Slet bødetakst</button></form></details>;
 }
 
 function PermissionTool({ squadId, currentUser, onError }: { squadId: number; currentUser: User; onError: (reason: unknown) => void }) {
@@ -488,8 +509,8 @@ function NewSquad({ onError }: { onError: (reason: unknown) => void }) {
   return <form onSubmit={submit}><Field label="Holdnavn" value={name} onChange={setName} required /><Field label="Klubnavn på DBU" value={dbuClubName} onChange={setDbuClubName} required /><label className="field"><span>DBU-links · ét pr. linje</span><textarea rows={3} value={links} onChange={(event) => setLinks(event.target.value)} /></label><button className="save-button">Opret hold</button></form>;
 }
 
-function Field({ label, value, onChange, type = "text", hint, required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; required?: boolean }) {
-  return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
+function Field({ label, value, onChange, type = "text", hint, required = false, min, step }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; required?: boolean; min?: string; step?: string }) {
+  return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span><input type={type} value={value} min={min} step={step} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
 }
 
 function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {

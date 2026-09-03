@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import re
 from urllib.parse import urlparse
 
@@ -11,7 +11,7 @@ from .google_drive import (
     download_latest_xlsx,
     mobilepay_drive_import_lock,
 )
-from .mobilepay import MobilePayImportError
+from .mobilepay import MobilePayImportError, normalize_text
 from .mobilepay_drive_worker import (
     mobilepay_drive_status,
     record_drive_failure,
@@ -24,6 +24,9 @@ from .models import (
     FineRequest,
     FineRule,
     HiddenMobilePayTransaction,
+    HoldsportActivity,
+    HoldsportParticipant,
+    HoldsportSyncState,
     Match,
     MatchLineupLock,
     MatchLineupPlayer,
@@ -63,15 +66,20 @@ from .services import (
     commit_mobilepay_import,
     create_fine_charge,
     effective_match_players,
+    assign_holdsport_participant,
+    fine_holdsport_activity_now,
     latest_season,
     map_player_to_existing_lineups,
     parse_amount_input,
     refresh_match,
+    rematch_holdsport_player,
+    remove_holdsport_activity_fines,
     rematch_mobilepay_transactions,
     reset_dbu_matches,
     season_for_squad,
     set_match_lineup,
     sync_squad,
+    sync_holdsport,
 )
 
 
@@ -122,6 +130,13 @@ def parse_minutes_late(value):
     value = str(value or "").strip()
     if not re.fullmatch(r"[1-9]\d*", value):
         raise ValueError("minutes_late_must_be_positive_integer")
+    return int(value)
+
+
+def parse_nonnegative_integer(value, field_name):
+    value = str(value if value is not None else "0").strip()
+    if not re.fullmatch(r"\d+", value):
+        raise ValueError(f"{field_name}_must_be_a_nonnegative_integer")
     return int(value)
 
 
@@ -892,11 +907,29 @@ def create_fine_rule(squad_id):
     name = str(data.get("name", "")).strip()
     if not name:
         return error("name_is_required")
-    automatic_types = {"WIN_FINE", "DRAW_FINE", "LOSE_FINE", "SCORED_GOAL", "CONCEDED_GOAL"}
+    automatic_types = {
+        "WIN_FINE",
+        "DRAW_FINE",
+        "LOSE_FINE",
+        "SCORED_GOAL",
+        "CONCEDED_GOAL",
+        "HOLDSPORT_TRAINING_NO_RSVP",
+        "HOLDSPORT_MATCH_NO_RSVP",
+    }
     if rule_type in automatic_types and database_session.scalar(
         select(FineRule).where(FineRule.squad_id == squad_id, FineRule.rule_type == rule_type, FineRule.active.is_(True))
     ):
         return error("only_one_automatic_rule_of_each_type_is_allowed")
+    holdsport_type = rule_type in {"HOLDSPORT_TRAINING_NO_RSVP", "HOLDSPORT_MATCH_NO_RSVP"}
+    try:
+        lead_days = parse_nonnegative_integer(
+            data.get("leadDays", 1 if rule_type == "HOLDSPORT_TRAINING_NO_RSVP" else 5),
+            "lead_days",
+        ) if holdsport_type else 0
+        lead_hours = parse_nonnegative_integer(data.get("leadHours", 0), "lead_hours") if holdsport_type else 0
+        lead_minutes = parse_nonnegative_integer(data.get("leadMinutes", 0), "lead_minutes") if holdsport_type else 0
+    except ValueError as exc:
+        return error(str(exc))
     rule = FineRule(
         squad_id=squad_id,
         name=name,
@@ -904,6 +937,9 @@ def create_fine_rule(squad_id):
         amount_cents=max(0, amount_cents),
         per_minute_amount_cents=max(0, per_minute_amount_cents) if rule_type == "LATE_FINE" else 0,
         rule_type=rule_type,
+        lead_days=lead_days,
+        lead_hours=lead_hours,
+        lead_minutes=lead_minutes,
     )
     database_session.add(rule)
     database_session.commit()
@@ -944,8 +980,40 @@ def update_fine_rule(squad_id, rule_id):
             )
         except (ValueError, TypeError) as exc:
             return error(str(exc))
+    holdsport_types = {"HOLDSPORT_TRAINING_NO_RSVP", "HOLDSPORT_MATCH_NO_RSVP"}
+    if any(key in data for key in ("leadDays", "leadHours", "leadMinutes")):
+        if rule.rule_type not in holdsport_types:
+            return error("lead_time_only_applies_to_holdsport_fines")
+        try:
+            if "leadDays" in data:
+                rule.lead_days = parse_nonnegative_integer(data["leadDays"], "lead_days")
+            if "leadHours" in data:
+                rule.lead_hours = parse_nonnegative_integer(data["leadHours"], "lead_hours")
+            if "leadMinutes" in data:
+                rule.lead_minutes = parse_nonnegative_integer(data["leadMinutes"], "lead_minutes")
+        except ValueError as exc:
+            return error(str(exc))
     if "active" in data:
-        rule.active = bool(data["active"])
+        active = bool(data["active"])
+        automatic_types = {
+            "WIN_FINE",
+            "DRAW_FINE",
+            "LOSE_FINE",
+            "SCORED_GOAL",
+            "CONCEDED_GOAL",
+            "HOLDSPORT_TRAINING_NO_RSVP",
+            "HOLDSPORT_MATCH_NO_RSVP",
+        }
+        if active and rule.rule_type in automatic_types and database_session.scalar(
+            select(FineRule.id).where(
+                FineRule.squad_id == squad_id,
+                FineRule.rule_type == rule.rule_type,
+                FineRule.active.is_(True),
+                FineRule.id != rule.id,
+            )
+        ):
+            return error("only_one_automatic_rule_of_each_type_is_allowed")
+        rule.active = active
     database_session.commit()
     return jsonify({"rule": rule_json(rule)})
 
@@ -993,10 +1061,24 @@ def create_player(squad_id):
         select(Player.id).where(Player.squad_id == squad_id, func.lower(Player.dbu_name) == dbu_name.casefold())
     ):
         return error("player_already_exists", 409)
-    player = Player(squad_id=squad_id, dbu_name=dbu_name, mobilepay_name=str(data.get("mobilePayName", "")).strip() or None)
+    holdsport_name = str(data.get("holdsportName", "")).strip() or None
+    if holdsport_name and any(
+        normalize_text(item.holdsport_name) == normalize_text(holdsport_name)
+        for item in database_session.scalars(select(Player).where(Player.squad_id == squad_id))
+    ):
+        return error("holdsport_name_already_exists", 409)
+    player = Player(
+        squad_id=squad_id,
+        dbu_name=dbu_name,
+        mobilepay_name=str(data.get("mobilePayName", "")).strip() or None,
+        holdsport_name=holdsport_name,
+        holdsport_auto_match=True,
+    )
     database_session.add(player)
     database_session.flush()
-    map_player_to_existing_lineups(database_session, player, database_session.get(Squad, squad_id))
+    squad = database_session.get(Squad, squad_id)
+    map_player_to_existing_lineups(database_session, player, squad)
+    rematch_holdsport_player(database_session, player, squad)
     database_session.commit()
     return jsonify({"player": player_json(player)}), 201
 
@@ -1028,10 +1110,26 @@ def update_player(squad_id, player_id):
         player.dbu_name = dbu_name
     if "mobilePayName" in data:
         player.mobilepay_name = str(data["mobilePayName"]).strip() or None
+    if "holdsportName" in data:
+        holdsport_name = str(data["holdsportName"]).strip() or None
+        if holdsport_name and any(
+            item.id != player.id and normalize_text(item.holdsport_name) == normalize_text(holdsport_name)
+            for item in database_session.scalars(select(Player).where(Player.squad_id == squad_id))
+        ):
+            return error("holdsport_name_already_exists", 409)
+        player.holdsport_name = holdsport_name
+        player.holdsport_auto_match = holdsport_name is not None
     if "active" in data:
         player.active = bool(data["active"])
     if player.active:
-        map_player_to_existing_lineups(database_session, player, database_session.get(Squad, squad_id))
+        squad = database_session.get(Squad, squad_id)
+        map_player_to_existing_lineups(database_session, player, squad)
+        rematch_holdsport_player(
+            database_session,
+            player,
+            squad,
+            allow_dbu_fallback="holdsportName" not in data,
+        )
     database_session.commit()
     return jsonify({"player": player_json(player)})
 
@@ -1652,6 +1750,310 @@ def reset_squad_dbu_api(squad_id):
     report = reset_dbu_matches(database_session, squad, season.id, timeout=20)
     database_session.commit()
     return jsonify({"report": report})
+
+
+def holdsport_json(database_session, squad_id):
+    state = database_session.get(HoldsportSyncState, squad_id)
+    rules = {
+        rule.rule_type: rule
+        for rule in database_session.scalars(
+            select(FineRule).where(
+                FineRule.squad_id == squad_id,
+                FineRule.rule_type.in_(
+                    {"HOLDSPORT_TRAINING_NO_RSVP", "HOLDSPORT_MATCH_NO_RSVP"}
+                ),
+                FineRule.active.is_(True),
+            )
+        )
+    }
+    activities = list(
+        database_session.scalars(
+            select(HoldsportActivity)
+            .where(HoldsportActivity.squad_id == squad_id)
+            .order_by(HoldsportActivity.activity_date, HoldsportActivity.starts_at)
+        )
+    )
+    activity_ids = [activity.id for activity in activities]
+    participants = list(
+        database_session.scalars(
+            select(HoldsportParticipant)
+            .where(HoldsportParticipant.activity_id.in_(activity_ids))
+            .order_by(HoldsportParticipant.source_name)
+        )
+    ) if activity_ids else []
+    participants_by_activity = {}
+    for participant in participants:
+        participants_by_activity.setdefault(participant.activity_id, []).append(participant)
+    charges = list(
+        database_session.scalars(
+            select(FineCharge).where(
+                FineCharge.squad_id == squad_id, FineCharge.source == "holdsport"
+            )
+        )
+    )
+    charges_by_key = {charge.source_key: charge for charge in charges}
+    charge_player_ids = {charge.player_id for charge in charges}
+    charge_players = {
+        player.id: player
+        for player in database_session.scalars(
+            select(Player).where(Player.id.in_(charge_player_ids))
+        )
+    } if charge_player_ids else {}
+    payload = []
+    for activity in activities:
+        rule_type = (
+            "HOLDSPORT_TRAINING_NO_RSVP"
+            if activity.activity_type == "Træning"
+            else "HOLDSPORT_MATCH_NO_RSVP"
+        )
+        rule = rules.get(rule_type)
+        due_at = activity.deadline_at
+        if due_at is None and rule is not None:
+            due_at = activity.starts_at - timedelta(
+                days=rule.lead_days,
+                hours=rule.lead_hours,
+                minutes=rule.lead_minutes,
+            )
+        activity_participants = []
+        for participant in participants_by_activity.get(activity.id, []):
+            player = database_session.get(Player, participant.player_id) if participant.player_id else None
+            source_key = f"holdsport:{activity.holdsport_id}:user:{participant.holdsport_user_id}"
+            charge = charges_by_key.get(source_key)
+            charged_player = charge_players.get(charge.player_id) if charge else None
+            activity_participants.append(
+                {
+                    "holdsportUserId": participant.holdsport_user_id,
+                    "name": participant.source_name,
+                    "playerId": participant.player_id,
+                    "playerName": player.dbu_name if player else None,
+                    "isCoach": bool(participant.is_coach),
+                    "fined": charge is not None,
+                    "fine": charge_json(charge, charged_player.dbu_name if charged_player else None)
+                    if charge else None,
+                }
+            )
+        payload.append(
+            {
+                "id": activity.id,
+                "holdsportId": activity.holdsport_id,
+                "title": activity.title,
+                "type": activity.activity_type,
+                "date": activity.activity_date.isoformat(),
+                "startsAt": f"{iso(activity.starts_at)}Z",
+                "dueAt": f"{iso(due_at)}Z" if due_at else None,
+                "captured": activity.deadline_captured_at is not None,
+                "url": activity.url,
+                "lastSyncedAt": iso(activity.last_synced_at),
+                "participants": activity_participants,
+            }
+        )
+    configured_squad_id = current_app.config.get("HOLDSPORT_SQUAD_ID", 1)
+    return {
+        "configured": bool(
+            current_app.config.get("HOLDSPORT_USERNAME")
+            and current_app.config.get("HOLDSPORT_PASSWORD")
+            and current_app.config.get("HOLDSPORT_TEAM_ID")
+            and configured_squad_id == squad_id
+        ),
+        "teamId": state.team_id if state else (current_app.config.get("HOLDSPORT_TEAM_ID") or None),
+        "fineRules": {
+            "training": rule_json(rules["HOLDSPORT_TRAINING_NO_RSVP"])
+            if "HOLDSPORT_TRAINING_NO_RSVP" in rules else None,
+            "match": rule_json(rules["HOLDSPORT_MATCH_NO_RSVP"])
+            if "HOLDSPORT_MATCH_NO_RSVP" in rules else None,
+        },
+        "lastCheckedAt": iso(state.last_checked_at) if state else None,
+        "lastSuccessAt": iso(state.last_success_at) if state else None,
+        "lastError": state.last_error if state else None,
+        "activities": payload,
+    }
+
+
+@api.get("/squads/<int:squad_id>/holdsport")
+@user_required
+def get_holdsport(squad_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    return jsonify(holdsport_json(database_session, squad.id))
+
+
+@api.post("/squads/<int:squad_id>/holdsport/sync")
+@user_required
+def sync_holdsport_api(squad_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    if current_app.config.get("HOLDSPORT_SQUAD_ID", 1) != squad_id:
+        return error("holdsport_not_configured_for_squad", 409)
+    report = sync_holdsport(
+        database_session,
+        squad,
+        current_app.config,
+        apply_fines=False,
+        refresh_all=True,
+    )
+    if "holdsport_sync_in_progress" in report["errors"]:
+        database_session.rollback()
+        return error("holdsport_sync_in_progress", 409)
+    database_session.commit()
+    return jsonify({"report": report, "holdsport": holdsport_json(database_session, squad.id)})
+
+
+@api.post("/squads/<int:squad_id>/holdsport/activities/<int:activity_id>/fine-now")
+@user_required
+def fine_holdsport_activity_now_api(squad_id, activity_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    activity = database_session.scalar(
+        select(HoldsportActivity).where(
+            HoldsportActivity.id == activity_id,
+            HoldsportActivity.squad_id == squad_id,
+        )
+    )
+    if activity is None:
+        return error("holdsport_activity_not_found", 404)
+    try:
+        report = fine_holdsport_activity_now(
+            database_session, squad, activity, current_app.config
+        )
+    except ValueError as exc:
+        database_session.rollback()
+        return error(str(exc), 409)
+    except Exception:
+        database_session.rollback()
+        return error("holdsport_sync_failed", 502)
+    database_session.commit()
+    return jsonify({"report": report, "holdsport": holdsport_json(database_session, squad.id)})
+
+
+@api.delete("/squads/<int:squad_id>/holdsport/activities/<int:activity_id>/fines")
+@user_required
+def remove_holdsport_activity_fines_api(squad_id, activity_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    activity = database_session.scalar(
+        select(HoldsportActivity).where(
+            HoldsportActivity.id == activity_id,
+            HoldsportActivity.squad_id == squad_id,
+        )
+    )
+    if activity is None:
+        return error("holdsport_activity_not_found", 404)
+    try:
+        report = remove_holdsport_activity_fines(database_session, squad, activity)
+    except ValueError as exc:
+        database_session.rollback()
+        return error(str(exc), 409)
+    database_session.commit()
+    return jsonify({"report": report, "holdsport": holdsport_json(database_session, squad.id)})
+
+
+@api.post("/squads/<int:squad_id>/holdsport/activities/<int:activity_id>/retrigger")
+@user_required
+def retrigger_holdsport_activity_api(squad_id, activity_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    activity = database_session.scalar(
+        select(HoldsportActivity).where(
+            HoldsportActivity.id == activity_id,
+            HoldsportActivity.squad_id == squad_id,
+        )
+    )
+    if activity is None:
+        return error("holdsport_activity_not_found", 404)
+    try:
+        report = fine_holdsport_activity_now(
+            database_session,
+            squad,
+            activity,
+            current_app.config,
+            replace=True,
+        )
+    except ValueError as exc:
+        database_session.rollback()
+        return error(str(exc), 409)
+    except Exception:
+        database_session.rollback()
+        return error("holdsport_sync_failed", 502)
+    database_session.commit()
+    return jsonify({"report": report, "holdsport": holdsport_json(database_session, squad.id)})
+
+
+@api.put(
+    "/squads/<int:squad_id>/holdsport/activities/<int:activity_id>"
+    "/participants/<holdsport_user_id>/player"
+)
+@user_required
+def assign_holdsport_participant_api(squad_id, activity_id, holdsport_user_id):
+    database_session = get_db()
+    permission = permission_error(database_session, load_current_user(), squad_id, "manage_holdsport")
+    if permission:
+        return permission
+    squad, squad_error = require_squad(database_session, squad_id)
+    if squad_error:
+        return squad_error
+    activity = database_session.scalar(
+        select(HoldsportActivity).where(
+            HoldsportActivity.id == activity_id,
+            HoldsportActivity.squad_id == squad_id,
+        )
+    )
+    if activity is None:
+        return error("holdsport_activity_not_found", 404)
+    participant = database_session.scalar(
+        select(HoldsportParticipant).where(
+            HoldsportParticipant.activity_id == activity.id,
+            HoldsportParticipant.holdsport_user_id == holdsport_user_id,
+        )
+    )
+    if participant is None:
+        return error("holdsport_participant_not_found", 404)
+    try:
+        player_id = int(body().get("playerId"))
+    except (TypeError, ValueError):
+        return error("player_not_found", 404)
+    player = database_session.scalar(
+        select(Player).where(
+            Player.id == player_id,
+            Player.squad_id == squad_id,
+            Player.active.is_(True),
+        )
+    )
+    if player is None:
+        return error("player_not_found", 404)
+    try:
+        report = assign_holdsport_participant(
+            database_session, squad, participant, player
+        )
+    except ValueError as exc:
+        database_session.rollback()
+        return error(str(exc), 409)
+    database_session.commit()
+    return jsonify({"report": report, "holdsport": holdsport_json(database_session, squad.id)})
 
 
 @api.get("/squads/<int:squad_id>/permissions")

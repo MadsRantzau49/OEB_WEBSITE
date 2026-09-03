@@ -54,6 +54,8 @@ def player_json(player, total_fines=0, total_paid=0, washes=0):
         "name": player.dbu_name,
         "dbuName": player.dbu_name,
         "mobilePayName": player.mobilepay_name,
+        "holdsportName": player.holdsport_name,
+        "holdsportAutoMatch": bool(player.holdsport_auto_match),
         "active": bool(player.active),
         "totalFines": money(total_fines),
         "totalPaid": money(total_paid),
@@ -71,6 +73,9 @@ def rule_json(rule):
         "amountCents": rule.amount_cents,
         "perMinuteAmount": money(rule.per_minute_amount_cents),
         "perMinuteAmountCents": rule.per_minute_amount_cents,
+        "leadDays": rule.lead_days,
+        "leadHours": rule.lead_hours,
+        "leadMinutes": rule.lead_minutes,
         "type": rule.rule_type,
         "active": bool(rule.active),
     }

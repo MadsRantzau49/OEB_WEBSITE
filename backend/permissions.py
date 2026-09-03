@@ -14,6 +14,7 @@ PERMISSIONS = {
     "manage_roster": "Manage players",
     "manage_matches": "Manage matches",
     "manage_dbu_sync": "Sync DBU data",
+    "manage_holdsport": "Manage Holdsport integration",
     "manage_permissions": "Manage squad permissions",
 }
 

@@ -25,6 +25,15 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       DBU_REQUEST_TIMEOUT: ${DBU_REQUEST_TIMEOUT:-20}
+      HOLDSPORT_USERNAME: ${HOLDSPORT_USERNAME:-}
+      HOLDSPORT_PASSWORD: ${HOLDSPORT_PASSWORD:-}
+      HOLDSPORT_TEAM_ID: ${HOLDSPORT_TEAM_ID:-}
+      HOLDSPORT_SQUAD_ID: ${HOLDSPORT_SQUAD_ID:-1}
+      HOLDSPORT_REQUEST_TIMEOUT: ${HOLDSPORT_REQUEST_TIMEOUT:-20}
+      HOLDSPORT_OVERVIEW_DAYS: ${HOLDSPORT_OVERVIEW_DAYS:-30}
+      HOLDSPORT_POLL_SECONDS: ${HOLDSPORT_POLL_SECONDS:-60}
+      HOLDSPORT_REFRESH_SECONDS: ${HOLDSPORT_REFRESH_SECONDS:-3600}
+      HOLDSPORT_TIME_ZONE: ${HOLDSPORT_TIME_ZONE:-Europe/Copenhagen}
       MOBILEPAY_DRIVE_FOLDER_ID: ${MOBILEPAY_DRIVE_FOLDER_ID:-1rWyT4SikqoSun-Xe7KRNbmBaT-Dp1Xm1}
       MOBILEPAY_DRIVE_SQUAD_ID: ${MOBILEPAY_DRIVE_SQUAD_ID:-1}
       MOBILEPAY_DRIVE_CREDENTIALS_FILE: ${MOBILEPAY_DRIVE_CREDENTIALS_FILE:-/run/secrets/google-drive/service-account.json}
@@ -94,6 +103,31 @@ services:
     volumes:
       - ./secrets/google-drive:/run/secrets/google-drive:ro
       - mobilepay_locks:/run/locks
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  holdsport-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    command: ["python", "-m", "backend.holdsport_jobs"]
+    environment:
+      AUTO_CREATE_SCHEMA: "0"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oeb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-oeb}
+      HOLDSPORT_USERNAME: ${HOLDSPORT_USERNAME:-}
+      HOLDSPORT_PASSWORD: ${HOLDSPORT_PASSWORD:-}
+      HOLDSPORT_TEAM_ID: ${HOLDSPORT_TEAM_ID:-}
+      HOLDSPORT_SQUAD_ID: ${HOLDSPORT_SQUAD_ID:-1}
+      HOLDSPORT_REQUEST_TIMEOUT: ${HOLDSPORT_REQUEST_TIMEOUT:-20}
+      HOLDSPORT_OVERVIEW_DAYS: ${HOLDSPORT_OVERVIEW_DAYS:-30}
+      HOLDSPORT_POLL_SECONDS: ${HOLDSPORT_POLL_SECONDS:-60}
+      HOLDSPORT_REFRESH_SECONDS: ${HOLDSPORT_REFRESH_SECONDS:-3600}
+      HOLDSPORT_TIME_ZONE: ${HOLDSPORT_TIME_ZONE:-Europe/Copenhagen}
     depends_on:
       init-db:
         condition: service_completed_successfully
